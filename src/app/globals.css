@@ -1,0 +1,361 @@
+@import "tailwindcss";
+
+:root {
+  /* Paleta LADO ₿ */
+  --background: #000000;
+  --foreground: #ffffff;
+  --primary: #ffc60a;
+  --primary-foreground: #000000;
+  --muted: #0a0a0a;
+  --muted-foreground: #a1a1aa;
+  --border: rgba(255, 198, 10, 0.15);
+  --card: rgba(255, 255, 255, 0.03);
+  --card-border: rgba(255, 255, 255, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-card: var(--card);
+  --color-card-border: var(--card-border);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* (Orbs globais removidos — cada página gerencia seu próprio background) */
+
+/* Animação do background do liquid-glass (21st.dev) */
+@keyframes moveBackground {
+  from {
+    background-position: 0% 0%;
+  }
+  to {
+    background-position: 0% -1000%;
+  }
+}
+
+/* Scanline do CryptoGrid — linha horizontal passando de cima pra baixo */
+@keyframes scanline {
+  0% {
+    top: 0;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+/* Pulsação do AuroraBackground — respira lentamente */
+@keyframes aurora-pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+}
+
+/* =======================================================
+   AURORA SCENE — beams dourados subindo (LADO ₿)
+   ======================================================= */
+
+:root {
+  --lado-bg-color: #000000;
+  --lado-light-color: #ffc60a;
+  --lado-glow-color-1: rgba(255, 198, 10, 0.8);
+  --lado-glow-color-2: rgba(255, 214, 61, 0.6);
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--lado-bg-color);
+  background-image:
+    linear-gradient(rgba(255, 198, 10, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 198, 10, 0.08) 1px, transparent 1px);
+  background-size: 80px 40px;
+  background-position: 0 0;
+  animation: moveGrid 20s linear infinite;
+  perspective: 800px;
+  pointer-events: none;
+}
+
+/* Floor — disco luminoso pulsante na base */
+.scene .floor {
+  position: absolute;
+  left: 50%;
+  bottom: -10%;
+  width: 150%;
+  height: 40%;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    ellipse at center bottom,
+    var(--lado-glow-color-1) 0%,
+    var(--lado-glow-color-2) 30%,
+    transparent 70%
+  );
+  filter: blur(40px);
+  animation: floorGlow 6s ease-in-out infinite;
+  z-index: 1;
+}
+
+/* Main column — coluna vertical luminosa no centro */
+.scene .main-column {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 100%;
+  background: linear-gradient(
+    to top,
+    var(--lado-glow-color-1) 0%,
+    var(--lado-glow-color-2) 40%,
+    transparent 100%
+  );
+  filter: blur(20px);
+  opacity: 0.7;
+  animation: mainGlow 4s ease-in-out infinite alternate;
+  z-index: 2;
+}
+
+/* Container dos beams */
+.scene .light-stream-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+}
+
+/* Beam individual — sobe do chão e desaparece */
+.scene .light-beam {
+  position: absolute;
+  bottom: 0;
+  height: 100%;
+  background: linear-gradient(
+    to top,
+    transparent 0%,
+    var(--lado-glow-color-1) 20%,
+    var(--lado-light-color) 50%,
+    var(--lado-glow-color-2) 80%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 10px var(--lado-glow-color-1),
+    0 0 20px var(--lado-glow-color-2);
+  animation-name: rise, fade, floorGlow;
+  animation-iteration-count: infinite, infinite, infinite;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1), ease-in-out, ease-in-out;
+  animation-fill-mode: both;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+/* Keyframes do aurora-scene */
+@keyframes rise {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-10%);
+    opacity: 0;
+  }
+}
+
+@keyframes fade {
+  0%, 100% {
+    opacity: 0;
+  }
+  5%, 80% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes floorGlow {
+  0%, 100% {
+    transform: translateX(-50%) scale(0.9);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateX(-50%) scale(1.1);
+    opacity: 1;
+  }
+}
+
+@keyframes mainGlow {
+  from {
+    opacity: 0.6;
+    filter: blur(25px);
+  }
+  to {
+    opacity: 0.8;
+    filter: blur(15px);
+  }
+}
+
+@keyframes moveGrid {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -80px -40px;
+  }
+}
+
+/* ==========================================================
+   LIQUID GLASS — efeito premium com múltiplas camadas
+   ========================================================== */
+
+.glass-card {
+  position: relative;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.08) 0%,
+      rgba(255, 255, 255, 0.02) 50%,
+      rgba(255, 255, 255, 0.05) 100%
+    );
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 1px rgba(255, 255, 255, 0.15),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.05);
+}
+
+.glass-card-glow {
+  position: relative;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 198, 10, 0.06) 0%,
+      rgba(255, 255, 255, 0.04) 30%,
+      rgba(255, 255, 255, 0.02) 70%,
+      rgba(255, 198, 10, 0.05) 100%
+    );
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid rgba(255, 198, 10, 0.25);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 8px 40px rgba(255, 198, 10, 0.12),
+    0 0 80px rgba(255, 198, 10, 0.08),
+    inset 0 1px 1px rgba(255, 198, 10, 0.25),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+/* Reflexo de luz no topo do card (highlight) */
+.glass-card-glow::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 198, 10, 0.6) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* Brilho difuso no canto superior esquerdo (reflexo líquido) */
+.glass-card-glow::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -20%;
+  width: 80%;
+  height: 80%;
+  background: radial-gradient(
+    ellipse at top left,
+    rgba(255, 198, 10, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 30%,
+    transparent 70%
+  );
+  pointer-events: none;
+  filter: blur(20px);
+}
+
+/* Inputs com glass effect combinando */
+.glass-input {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0.02) 100%
+    );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
+  transition: all 0.2s ease;
+}
+
+.glass-input:focus {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 198, 10, 0.08) 0%,
+      rgba(255, 255, 255, 0.04) 100%
+    );
+  border-color: rgba(255, 198, 10, 0.5);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 198, 10, 0.15),
+    0 0 0 3px rgba(255, 198, 10, 0.1);
+}
+
+/* Scrollbar dark */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 198, 10, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 198, 10, 0.5);
+}
