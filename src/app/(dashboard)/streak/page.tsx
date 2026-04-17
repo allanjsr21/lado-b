@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Flame, Trophy, Target } from "lucide-react";
+import { Flame, Trophy, Target, Rocket, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GlassEffect } from "@/components/ui/glass-effect";
 
@@ -80,8 +80,8 @@ export default function StreakPage() {
             <h2 className="font-semibold text-white">Próxima conquista</h2>
           </div>
           <div className="flex items-center gap-3 p-3 rounded-xl bg-[#ffc60a]/5 border border-[#ffc60a]/20">
-            <div className="w-12 h-12 rounded-lg bg-[#ffc60a]/20 flex items-center justify-center text-2xl">
-              ✅
+            <div className="w-12 h-12 rounded-lg bg-[#ffc60a]/20 flex items-center justify-center">
+              <Rocket size={22} className="text-[#ffc60a]" />
             </div>
             <div>
               <div className="font-semibold text-white text-sm">
@@ -100,8 +100,9 @@ export default function StreakPage() {
 
       {/* Última edição */}
       <Card>
-        <h2 className="font-semibold text-white mb-3">
-          📬 última edição LADO ₿
+        <h2 className="font-semibold text-white mb-3 flex items-center gap-2">
+          <Mail size={16} className="text-[#ffc60a]" />
+          última edição LADO ₿
         </h2>
         <p className="text-white/70 text-sm leading-relaxed">
           Bom dia, bitcoiner. Hoje a gente destrincha o que realmente mexe com o

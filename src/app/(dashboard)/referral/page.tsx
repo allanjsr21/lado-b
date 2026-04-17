@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Check, Mail, Shield, Loader2, Gift } from "lucide-react";
+import { Copy, Check, Mail, Shield, Loader2, Gift, BookOpen } from "lucide-react";
 import { Card, PageHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -244,8 +244,9 @@ export default function ReferralPage() {
           </div>
 
           <Card>
-            <h2 className="font-semibold text-white mb-3">
-              📖 Como funciona uma indicação válida
+            <h2 className="font-semibold text-white mb-3 flex items-center gap-2">
+              <BookOpen size={16} className="text-[#ffc60a]" />
+              Como funciona uma indicação válida
             </h2>
             <ol className="space-y-2 text-sm text-white/70 list-decimal list-inside">
               <li>Você compartilha seu link único</li>

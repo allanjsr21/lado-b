@@ -1,6 +1,6 @@
 "use client";
 
-import { Gift, Calendar, Users } from "lucide-react";
+import { Gift, Calendar, Users, ClipboardList } from "lucide-react";
 import { Card, PageHeader } from "@/components/ui/card";
 
 /**
@@ -85,7 +85,10 @@ export default function GiveawayPage() {
 
       {/* Como participar */}
       <Card>
-        <h3 className="font-semibold text-white mb-3">📋 Regras do sorteio</h3>
+        <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
+          <ClipboardList size={16} className="text-[#ffc60a]" />
+          Regras do sorteio
+        </h3>
         <ul className="space-y-2 text-sm text-white/70">
           <li className="flex gap-2">
             <span className="text-[#ffc60a] flex-shrink-0">1.</span>
