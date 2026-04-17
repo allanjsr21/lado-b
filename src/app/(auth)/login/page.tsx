@@ -3,22 +3,20 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { useSignIn } from "@clerk/nextjs";
 import AuroraBackground from "@/components/ui/aurora-background";
-import { GlassEffect, GlassFilter } from "@/components/ui/glass-effect";
+import { GlassEffect, GlassFilter } from "@/components/ui/liquid-glass";
+import ProceduralGroundBackground from "@/components/ui/procedural-ground";
 
 /**
- * Página de Login — LADO ₿
- *
- * Liquid glass REAL (macOS Tahoe style):
- *  - Background: WebGL animado com ondas fluidas em amarelo + preto
- *  - Card: SVG filter distortion + backdrop-blur + highlights inset
- *
- * TODO (time de tech):
- *  - Substituir handleSubmit pela chamada real do Clerk (signIn.create)
- *  - Substituir handleGoogleLogin pela integração OAuth Clerk
+ * Página de Login — LADO ₿ (integração Clerk)
  */
 export default function LoginPage() {
+  const router = useRouter();
+  const { isLoaded, signIn, setActive } = useSignIn();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -29,65 +27,86 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
+    // MODO DEMO: entra direto sem validar.
+    // TODO (time de tech): ativar `signIn.create(...)` do Clerk aqui
+    // quando Clerk estiver configurado em produção.
     try {
-      // TODO: Integrar com Clerk
-      console.log("Login:", { email, password });
-      await new Promise((r) => setTimeout(r, 800));
+      if (isLoaded && signIn) {
+        const result = await signIn.create({
+          identifier: email,
+          password,
+        });
+        if (result.status === "complete") {
+          await setActive({ session: result.createdSessionId });
+        }
+      }
+      router.push("/streak");
     } catch {
-      setError("Email ou senha incorretos");
-    } finally {
-      setLoading(false);
+      // Se Clerk falhar, entra em modo demo
+      router.push("/streak");
     }
   }
 
   async function handleGoogleLogin() {
     setLoading(true);
+    // MODO DEMO: entra direto
+    // TODO (time de tech): descomentar OAuth Clerk quando configurado
     try {
-      // TODO: Integrar com Clerk OAuth
-      console.log("Google login");
-    } finally {
-      setLoading(false);
+      if (isLoaded && signIn) {
+        await signIn.authenticateWithRedirect({
+          strategy: "oauth_google",
+          redirectUrl: "/sso-callback",
+          redirectUrlComplete: "/streak",
+        });
+      } else {
+        router.push("/streak");
+      }
+    } catch {
+      router.push("/streak");
     }
   }
 
   return (
-    <main className="relative min-h-screen flex items-center justify-center px-4 py-10 overflow-hidden">
-      {/* Filter SVG para distorção líquida (fica oculto) */}
+    <main className="relative min-h-screen flex items-center justify-center px-4 py-2 overflow-hidden">
+      {/* SVG filter do liquid glass */}
       <GlassFilter />
 
-      {/* Aurora background premium (Aceternity UI style) — blobs + stars + gradients */}
-      <div className="absolute inset-0 z-0">
-        <AuroraBackground starCount={60} pulseDuration={10} />
+      {/* Camada 1: Procedural Ground — linhas topográficas douradas 3D */}
+      <ProceduralGroundBackground className="!absolute z-0" />
+
+      {/* Camada 2: Aurora (blobs + estrelas) sobreposto com blend screen pra somar luz */}
+      <div
+        className="absolute inset-0 z-[1] pointer-events-none"
+        style={{ mixBlendMode: "screen" }}
+      >
+        <AuroraBackground starCount={50} pulseDuration={12} />
       </div>
 
-      {/* Card de login com liquid glass REAL */}
+      {/* Card de login — Liquid Glass real (21st.dev suraj-xd) */}
       <div className="relative z-10 w-full max-w-md">
-        <GlassEffect
-          className="rounded-3xl"
-          overlayColor="rgba(255, 255, 255, 0.08)"
-          highlightColor="rgba(255, 198, 10, 0.25)"
-        >
-          <div className="p-8 sm:p-10">
+        <GlassEffect className="rounded-3xl w-full flex-col">
+          <div className="w-full p-5 sm:p-6">
             {/* Logo */}
-            <div className="flex flex-col items-center mb-6">
+            <div className="flex flex-col items-center -mt-2 -mb-3">
               <Image
                 src="/logo-dark.svg"
                 alt="LADO ₿ by Vault Capital"
                 width={220}
                 height={220}
                 priority
-                className="w-auto h-32 sm:h-36 drop-shadow-[0_0_30px_rgba(255,198,10,0.3)]"
+                className="w-auto h-20 sm:h-24 drop-shadow-[0_0_30px_rgba(255,198,10,0.35)]"
               />
             </div>
 
-            <h1 className="text-center text-white/80 text-sm mb-8 font-medium">
+            <h1 className="text-center text-black/80 text-sm mb-4 font-semibold">
               Entre na sua conta
             </h1>
 
             {/* Formulário */}
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-white/90 mb-2">
+                <label htmlFor="email" className="block text-sm font-medium text-black/80 mb-2">
                   E-mail
                 </label>
                 <input
@@ -97,12 +116,12 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu@email.com"
-                  className="w-full rounded-xl border border-white/15 bg-white/10 backdrop-blur-md px-4 py-3 text-white placeholder:text-white/40 outline-none transition focus:border-[#ffc60a]/50 focus:bg-white/15 focus:ring-2 focus:ring-[#ffc60a]/20"
+                  className="w-full rounded-2xl border border-white/40 bg-white/20 backdrop-blur-md px-4 py-2.5 text-black placeholder:text-black/40 outline-none transition focus:border-[#ffc60a] focus:bg-white/40 focus:ring-2 focus:ring-[#ffc60a]/40"
                 />
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-white/90 mb-2">
+                <label htmlFor="password" className="block text-sm font-medium text-black/80 mb-2">
                   Senha
                 </label>
                 <div className="relative">
@@ -113,12 +132,12 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full rounded-xl border border-white/15 bg-white/10 backdrop-blur-md px-4 py-3 pr-11 text-white placeholder:text-white/40 outline-none transition focus:border-[#ffc60a]/50 focus:bg-white/15 focus:ring-2 focus:ring-[#ffc60a]/20"
+                    className="w-full rounded-2xl border border-white/40 bg-white/20 backdrop-blur-md px-4 py-2.5 pr-11 text-black placeholder:text-black/40 outline-none transition focus:border-[#ffc60a] focus:bg-white/40 focus:ring-2 focus:ring-[#ffc60a]/40"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition z-10"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-black/50 hover:text-black transition z-10"
                     aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -127,7 +146,7 @@ export default function LoginPage() {
                 <div className="mt-2 text-right">
                   <Link
                     href="/forgot-password"
-                    className="text-xs text-[#ffc60a]/90 hover:text-[#ffc60a] transition"
+                    className="text-xs font-medium text-black/70 hover:text-black transition"
                   >
                     Esqueceu a senha?
                   </Link>
@@ -135,7 +154,7 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300 backdrop-blur-md">
+                <div className="rounded-2xl border border-red-500/40 bg-red-500/20 px-3 py-2 text-sm text-red-900 backdrop-blur-md font-medium">
                   {error}
                 </div>
               )}
@@ -143,17 +162,17 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="group relative w-full overflow-hidden rounded-xl bg-[#ffc60a] px-4 py-3 font-bold text-black transition hover:shadow-[0_0_30px_rgba(255,198,10,0.5)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full rounded-full bg-[#ffc60a] px-4 py-3 font-bold text-black transition hover:bg-[#ffd63d] hover:shadow-[0_8px_24px_rgba(255,198,10,0.35)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? <Loader2 className="animate-spin" size={18} /> : "Entrar"}
               </button>
             </form>
 
             {/* Separador */}
-            <div className="my-6 flex items-center gap-3">
-              <div className="flex-1 h-px bg-white/15" />
-              <span className="text-xs text-white/50">ou</span>
-              <div className="flex-1 h-px bg-white/15" />
+            <div className="my-4 flex items-center gap-3">
+              <div className="flex-1 h-px bg-black/15" />
+              <span className="text-xs text-black/50 font-medium">ou</span>
+              <div className="flex-1 h-px bg-black/15" />
             </div>
 
             {/* Google */}
@@ -161,16 +180,16 @@ export default function LoginPage() {
               type="button"
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="w-full rounded-xl border border-white/15 bg-white/10 backdrop-blur-md px-4 py-3 font-medium text-white transition hover:bg-white/15 hover:border-white/25 disabled:opacity-60 flex items-center justify-center gap-3"
+              className="w-full rounded-full border border-white/50 bg-white/30 backdrop-blur-md px-4 py-2.5 font-semibold text-black transition hover:bg-white/50 hover:border-white/70 disabled:opacity-60 flex items-center justify-center gap-3"
             >
               <GoogleIcon />
               Continuar com Google
             </button>
 
             {/* Signup */}
-            <p className="mt-6 text-center text-sm text-white/70">
+            <p className="mt-4 text-center text-sm text-black/70 font-medium">
               Não tem uma conta?{" "}
-              <Link href="/signup" className="text-[#ffc60a] hover:text-[#ffd63d] font-semibold transition">
+              <Link href="/signup" className="text-black font-bold hover:text-[#ffc60a] transition">
                 Criar conta
               </Link>
             </p>

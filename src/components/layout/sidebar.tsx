@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useClerk } from "@clerk/nextjs";
 import {
   Home,
   Trophy,
@@ -46,7 +47,19 @@ const glassStyle: React.CSSProperties = {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { signOut } = useClerk();
   const [open, setOpen] = useState(false);
+
+  const handleSignOut = async () => {
+    // MODO DEMO: tenta signOut mas sempre redireciona
+    try {
+      await signOut();
+    } catch {
+      // ignore
+    }
+    router.push("/login");
+  };
 
   // Fecha drawer ao mudar de rota (mobile)
   useEffect(() => {
@@ -148,10 +161,7 @@ export default function Sidebar() {
         <div className="p-3 space-y-1 border-t border-white/5">
           <button
             type="button"
-            onClick={() => {
-              // TODO (time de tech): integrar com signOut() do Clerk
-              console.log("logout");
-            }}
+            onClick={handleSignOut}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-white/5 transition-colors"
           >
             <LogOut size={18} />

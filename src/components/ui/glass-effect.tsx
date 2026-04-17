@@ -3,28 +3,27 @@
 import React from "react";
 
 /**
- * GlassEffect — efeito liquid glass real (estilo macOS Tahoe / Apple Vision Pro)
+ * GlassEffect — efeito liquid glass real (macOS Tahoe / Apple Vision Pro).
  *
  * Usa SVG filter (feTurbulence + feDisplacementMap + feSpecularLighting)
- * para criar DISTORÇÃO REAL do que está atrás do card, como se fosse vidro líquido.
+ * para distorcer o que está atrás do card como vidro líquido.
  *
  * Renderização por camadas (z-index):
- *   0 — backdrop-blur + distortion filter
- *   10 — overlay sutil branco translúcido
- *   20 — inset shadow para highlights nas bordas
+ *   0  — backdrop-blur + distortion filter (SVG url(#glass-distortion))
+ *   10 — overlay branco translúcido (25% por padrão — branco leitoso)
+ *   20 — inset shadow criando highlights nas bordas (brilho de vidro)
  *   30 — conteúdo real
  *
- * IMPORTANTE: sempre renderizar <GlassFilter /> uma vez na página (pode ser
- * no layout) para o filter SVG ficar disponível globalmente.
+ * IMPORTANTE: <GlassFilter /> precisa estar renderizado uma vez na página.
  */
 
 interface GlassEffectProps {
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
-  /** Cor do overlay interno. Default rgba(255,255,255,0.15) */
+  /** Cor do overlay (default rgba(255,255,255,0.25) — branco 25% como o original) */
   overlayColor?: string;
-  /** Cor das bordas internas (highlights). Default branco */
+  /** Cor dos highlights nas bordas (default rgba(255,255,255,0.5) — branco 50%) */
   highlightColor?: string;
 }
 
@@ -32,12 +31,12 @@ export const GlassEffect: React.FC<GlassEffectProps> = ({
   children,
   className = "",
   style = {},
-  overlayColor = "rgba(255, 255, 255, 0.12)",
-  highlightColor = "rgba(255, 255, 255, 0.4)",
+  overlayColor = "rgba(255, 255, 255, 0.25)",
+  highlightColor = "rgba(255, 255, 255, 0.5)",
 }) => {
   const glassStyle: React.CSSProperties = {
     boxShadow:
-      "0 6px 6px rgba(0, 0, 0, 0.25), 0 0 40px rgba(0, 0, 0, 0.15), 0 0 60px rgba(255, 198, 10, 0.08)",
+      "0 6px 6px rgba(0, 0, 0, 0.2), 0 0 20px rgba(0, 0, 0, 0.1)",
     transitionTimingFunction: "cubic-bezier(0.175, 0.885, 0.32, 2.2)",
     ...style,
   };
@@ -47,7 +46,7 @@ export const GlassEffect: React.FC<GlassEffectProps> = ({
       className={`relative overflow-hidden transition-all duration-700 ${className}`}
       style={glassStyle}
     >
-      {/* Camada 0 — distorção real do background via SVG filter */}
+      {/* Camada 0 — distorção real do background via SVG filter + blur sutil */}
       <div
         className="absolute inset-0 z-0"
         style={{
@@ -59,7 +58,7 @@ export const GlassEffect: React.FC<GlassEffectProps> = ({
         }}
       />
 
-      {/* Camada 1 — overlay translúcido para suavizar */}
+      {/* Camada 1 — overlay branco leitoso */}
       <div
         className="absolute inset-0 z-10"
         style={{
@@ -68,7 +67,7 @@ export const GlassEffect: React.FC<GlassEffectProps> = ({
         }}
       />
 
-      {/* Camada 2 — highlights nas bordas (refração de luz) */}
+      {/* Camada 2 — highlights nas bordas (refração de vidro) */}
       <div
         className="absolute inset-0 z-20"
         style={{
@@ -80,15 +79,14 @@ export const GlassEffect: React.FC<GlassEffectProps> = ({
         }}
       />
 
-      {/* Camada 3 — conteúdo real */}
+      {/* Camada 3 — conteúdo */}
       <div className="relative z-30">{children}</div>
     </div>
   );
 };
 
 /**
- * Filter SVG que cria a distorção líquida.
- * Renderizar uma única vez por página/layout.
+ * Filter SVG para distorção líquida (renderizar uma vez por página).
  */
 export const GlassFilter: React.FC = () => (
   <svg style={{ display: "none" }} aria-hidden="true">
@@ -100,7 +98,6 @@ export const GlassFilter: React.FC = () => (
       height="100%"
       filterUnits="objectBoundingBox"
     >
-      {/* Ruído orgânico */}
       <feTurbulence
         type="fractalNoise"
         baseFrequency="0.001 0.005"
@@ -108,18 +105,12 @@ export const GlassFilter: React.FC = () => (
         seed="17"
         result="turbulence"
       />
-
-      {/* Transforma o ruído em mapa de deslocamento */}
       <feComponentTransfer in="turbulence" result="mapped">
         <feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5" />
         <feFuncG type="gamma" amplitude="0" exponent="1" offset="0" />
         <feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5" />
       </feComponentTransfer>
-
-      {/* Suaviza o mapa */}
       <feGaussianBlur in="turbulence" stdDeviation="3" result="softMap" />
-
-      {/* Luz especular simulando reflexo */}
       <feSpecularLighting
         in="softMap"
         surfaceScale="5"
@@ -130,7 +121,6 @@ export const GlassFilter: React.FC = () => (
       >
         <fePointLight x="-200" y="-200" z="300" />
       </feSpecularLighting>
-
       <feComposite
         in="specLight"
         operator="arithmetic"
@@ -140,8 +130,6 @@ export const GlassFilter: React.FC = () => (
         k4="0"
         result="litImage"
       />
-
-      {/* Aplica deslocamento ao conteúdo atrás do glass */}
       <feDisplacementMap
         in="SourceGraphic"
         in2="softMap"

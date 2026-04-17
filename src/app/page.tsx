@@ -1,15 +1,14 @@
 import { redirect } from "next/navigation";
 
 /**
- * Root page — redireciona conforme autenticação.
+ * Root page — redireciona pro dashboard.
  *
- * TODO (time de tech):
- *  - Usar auth() do Clerk pra checar sessão
- *  - Se autenticado → /streak (dashboard)
- *  - Se não → /login
- *
- * Por enquanto redireciona sempre pro login (fluxo padrão).
+ * MODO DEMO: sempre vai pro /streak.
+ * Quando Clerk estiver 100% conectado, restaurar:
+ *   const { userId } = await auth();
+ *   if (userId) redirect("/streak");
+ *   redirect("/login");
  */
 export default function RootPage() {
-  redirect("/login");
+  redirect("/streak");
 }

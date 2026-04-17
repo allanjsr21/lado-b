@@ -1,39 +1,34 @@
+import { clerkMiddleware } from "@clerk/nextjs/server";
+
 /**
- * Middleware — proteção de rotas via Clerk.
+ * Middleware — Clerk em modo passthrough.
  *
- * Rotas públicas (sem auth): /login, /signup, /forgot-password, /api/webhooks/*
- * Rotas protegidas (auth obrigatório): todas as outras (especialmente /streak, /ranking etc.)
- *
- * TODO (time de tech):
- *  - Descomentar os imports e ativar o middleware quando Clerk estiver configurado
- *  - Testar redirecionamentos em produção
+ * MODO ATUAL: Todas as rotas acessíveis sem login (modo demo/dev).
+ * Quando quiser ativar proteção real, descomentar o `createRouteMatcher`
+ * e o `auth.protect()` abaixo.
  */
+export default clerkMiddleware();
 
+// --- Para ativar proteção no futuro:
 // import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-
+//
 // const isPublicRoute = createRouteMatcher([
 //   "/login(.*)",
 //   "/signup(.*)",
 //   "/forgot-password(.*)",
+//   "/sso-callback(.*)",
 //   "/api/webhooks(.*)",
 // ]);
-
+//
 // export default clerkMiddleware(async (auth, req) => {
 //   if (!isPublicRoute(req)) {
 //     await auth.protect();
 //   }
 // });
 
-// Stub enquanto Clerk não está configurado:
-export default function middleware() {
-  // pass through
-}
-
 export const config = {
   matcher: [
-    // Match de todas as rotas, exceto assets estáticos
-    "/((?!_next|.*\\..*).*)",
-    // Inclui rotas de API
-    "/api/(.*)",
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
   ],
 };
