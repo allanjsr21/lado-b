@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { asset } from "@/lib/asset";
 
 /**
  * Sidebar — navegação lateral da área autenticada LADO ₿.
@@ -113,7 +114,7 @@ export default function Sidebar() {
         <div className="flex items-center justify-center py-8 px-4">
           <Link href="/streak" className="flex items-center justify-center">
             <Image
-              src="/logo-dark.svg"
+              src={asset("/logo-dark.svg")}
               alt="LADO ₿"
               width={100}
               height={100}

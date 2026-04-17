@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { asset } from "@/lib/asset";
 import AuroraBackground from "@/components/ui/aurora-background";
 import { GlassEffect, GlassFilter } from "@/components/ui/liquid-glass";
 import ProceduralGroundBackground from "@/components/ui/procedural-ground";
@@ -63,7 +64,7 @@ export default function LoginPage() {
             {/* Logo */}
             <div className="flex flex-col items-center -mt-2 -mb-3">
               <Image
-                src="/logo-dark.svg"
+                src={asset("/logo-dark.svg")}
                 alt="LADO ₿ by Vault Capital"
                 width={220}
                 height={220}

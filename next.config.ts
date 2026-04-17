@@ -24,6 +24,10 @@ const nextConfig: NextConfig = {
     images: {
       unoptimized: true,
     },
+    // Expõe o basePath em runtime pro helper asset() prefixar corretamente
+    env: {
+      NEXT_PUBLIC_BASE_PATH: "/lado-b",
+    },
   }),
 };
 

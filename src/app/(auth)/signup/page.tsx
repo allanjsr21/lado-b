@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { asset } from "@/lib/asset";
 import AuroraBackground from "@/components/ui/aurora-background";
 
 /**
@@ -93,7 +94,7 @@ export default function SignupPage() {
           <div className="relative p-8 sm:p-10">
             <div className="flex flex-col items-center mb-4">
               <Image
-                src="/logo-dark.svg"
+                src={asset("/logo-dark.svg")}
                 alt="LADO ₿ by Vault Capital"
                 width={220}
                 height={220}
