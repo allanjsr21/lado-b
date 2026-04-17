@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -18,6 +18,16 @@ import ProceduralGroundBackground from "@/components/ui/procedural-ground";
  */
 export default function LoginPage() {
   const router = useRouter();
+
+  // Mobile: não monta o shader WebGL (performance + distração)
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,7 +57,8 @@ export default function LoginPage() {
       <GlassFilter />
 
       {/* Camada 1: Procedural Ground — linhas topográficas douradas 3D */}
-      <ProceduralGroundBackground className="!absolute z-0" />
+      {/* Shader WebGL só em desktop (no mobile sobrecarrega + distrai) */}
+      {isDesktop && <ProceduralGroundBackground className="!absolute z-0" />}
 
       {/* Camada 2: Aurora (blobs + estrelas) sobreposto com blend screen pra somar luz */}
       <div
