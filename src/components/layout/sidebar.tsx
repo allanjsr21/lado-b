@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useClerk } from "@clerk/nextjs";
 import {
   Home,
   Trophy,
@@ -48,16 +47,11 @@ const glassStyle: React.CSSProperties = {
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { signOut } = useClerk();
   const [open, setOpen] = useState(false);
 
   const handleSignOut = async () => {
-    // MODO DEMO: tenta signOut mas sempre redireciona
-    try {
-      await signOut();
-    } catch {
-      // ignore
-    }
+    // MODO DEMO — só redireciona.
+    // TODO (time de tech): usar useClerk().signOut() aqui
     router.push("/login");
   };
 

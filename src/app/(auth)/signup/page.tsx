@@ -5,15 +5,16 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { useSignUp } from "@clerk/nextjs";
 import AuroraBackground from "@/components/ui/aurora-background";
 
 /**
- * Página de Criar Conta — LADO ₿ (integração Clerk)
+ * Página de Criar Conta — LADO ₿
+ *
+ * MODO DEMO: qualquer clique redireciona pro /streak.
+ * TODO (time de tech): ativar `useSignUp` do Clerk aqui quando pronto.
  */
 export default function SignupPage() {
   const router = useRouter();
-  const { isLoaded, signUp, setActive } = useSignUp();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -23,7 +24,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Estado de verificação de email
+  // Estado de verificação (não acionado em modo demo, mantido pro time)
   const [pendingVerification, setPendingVerification] = useState(false);
   const [code, setCode] = useState("");
 
@@ -41,67 +42,25 @@ export default function SignupPage() {
     }
 
     setLoading(true);
-    // MODO DEMO: vai direto pro dashboard (sem verificar email).
-    // TODO (time de tech): reativar Clerk signUp.create + verificação de email
-    try {
-      if (isLoaded && signUp) {
-        const [firstName, ...rest] = name.trim().split(" ");
-        const lastName = rest.join(" ") || undefined;
-        await signUp.create({
-          emailAddress: email,
-          password,
-          firstName,
-          lastName,
-        });
-        await signUp.prepareEmailAddressVerification({
-          strategy: "email_code",
-        });
-        setPendingVerification(true);
-        return;
-      }
-      router.push("/streak");
-    } catch {
-      router.push("/streak");
-    }
+    // MODO DEMO
+    void name;
+    void email;
+    await new Promise((r) => setTimeout(r, 400));
+    router.push("/streak");
   }
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
-    if (!isLoaded) return;
-
-    setError(null);
     setLoading(true);
-    try {
-      const result = await signUp.attemptEmailAddressVerification({ code });
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId });
-        router.push("/streak");
-      } else {
-        setError("Verifique o código e tente novamente.");
-      }
-    } catch (err: unknown) {
-      const e = err as { errors?: Array<{ message?: string }> };
-      setError(e.errors?.[0]?.message ?? "Código inválido.");
-    } finally {
-      setLoading(false);
-    }
+    void code;
+    await new Promise((r) => setTimeout(r, 400));
+    router.push("/streak");
   }
 
   async function handleGoogleSignup() {
     setLoading(true);
-    try {
-      if (isLoaded && signUp) {
-        await signUp.authenticateWithRedirect({
-          strategy: "oauth_google",
-          redirectUrl: "/sso-callback",
-          redirectUrlComplete: "/streak",
-        });
-      } else {
-        router.push("/streak");
-      }
-    } catch {
-      router.push("/streak");
-    }
+    await new Promise((r) => setTimeout(r, 400));
+    router.push("/streak");
   }
 
   return (

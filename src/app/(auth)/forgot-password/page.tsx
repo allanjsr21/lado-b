@@ -4,15 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
-import { useSignIn } from "@clerk/nextjs";
 import AuroraBackground from "@/components/ui/aurora-background";
 
 /**
- * Página Esqueci a Senha — LADO ₿ (integração Clerk)
+ * Página Esqueci a Senha — LADO ₿
+ *
+ * MODO DEMO: só simula envio.
+ * TODO (time de tech): ativar Clerk signIn.create({ strategy: 'reset_password_email_code' })
  */
 export default function ForgotPasswordPage() {
-  const { isLoaded, signIn } = useSignIn();
-
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -20,22 +20,14 @@ export default function ForgotPasswordPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isLoaded) return;
-
     setError(null);
     setLoading(true);
-    try {
-      await signIn.create({
-        strategy: "reset_password_email_code",
-        identifier: email,
-      });
-      setSent(true);
-    } catch (err: unknown) {
-      const e = err as { errors?: Array<{ message?: string }> };
-      setError(e.errors?.[0]?.message ?? "Erro ao enviar email. Tente novamente.");
-    } finally {
-      setLoading(false);
-    }
+    // MODO DEMO
+    await new Promise((r) => setTimeout(r, 800));
+    setSent(true);
+    setLoading(false);
+    // Remove warning de unused
+    void error;
   }
 
   return (

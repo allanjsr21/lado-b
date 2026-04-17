@@ -5,66 +5,39 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { useSignIn } from "@clerk/nextjs";
 import AuroraBackground from "@/components/ui/aurora-background";
 import { GlassEffect, GlassFilter } from "@/components/ui/liquid-glass";
 import ProceduralGroundBackground from "@/components/ui/procedural-ground";
 
 /**
- * Página de Login — LADO ₿ (integração Clerk)
+ * Página de Login — LADO ₿
+ *
+ * MODO DEMO: qualquer clique redireciona pro /streak.
+ * TODO (time de tech): ativar `useSignIn` do Clerk aqui quando pronto.
  */
 export default function LoginPage() {
   const router = useRouter();
-  const { isLoaded, signIn, setActive } = useSignIn();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     setLoading(true);
-
-    // MODO DEMO: entra direto sem validar.
-    // TODO (time de tech): ativar `signIn.create(...)` do Clerk aqui
-    // quando Clerk estiver configurado em produção.
-    try {
-      if (isLoaded && signIn) {
-        const result = await signIn.create({
-          identifier: email,
-          password,
-        });
-        if (result.status === "complete") {
-          await setActive({ session: result.createdSessionId });
-        }
-      }
-      router.push("/streak");
-    } catch {
-      // Se Clerk falhar, entra em modo demo
-      router.push("/streak");
-    }
+    // MODO DEMO
+    void email;
+    void password;
+    await new Promise((r) => setTimeout(r, 400));
+    router.push("/streak");
   }
 
   async function handleGoogleLogin() {
     setLoading(true);
-    // MODO DEMO: entra direto
-    // TODO (time de tech): descomentar OAuth Clerk quando configurado
-    try {
-      if (isLoaded && signIn) {
-        await signIn.authenticateWithRedirect({
-          strategy: "oauth_google",
-          redirectUrl: "/sso-callback",
-          redirectUrlComplete: "/streak",
-        });
-      } else {
-        router.push("/streak");
-      }
-    } catch {
-      router.push("/streak");
-    }
+    await new Promise((r) => setTimeout(r, 400));
+    router.push("/streak");
   }
 
   return (

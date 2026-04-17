@@ -258,9 +258,10 @@ function MonthlyCalendar({ readDays }: { readDays: number[] }) {
   const todayDate = today.getDate();
 
   const weekDays = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
-  const days = Array.from({ length: firstDay }, () => null).concat(
-    Array.from({ length: daysInMonth }, (_, i) => i + 1) as (number | null)[],
-  );
+  const days: (number | null)[] = [
+    ...Array.from<null>({ length: firstDay }).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
 
   return (
     <div>
