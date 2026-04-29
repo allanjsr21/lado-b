@@ -258,6 +258,12 @@ export default function SignupPage() {
                 Entrar
               </Link>
             </p>
+            <p className="mt-2 text-center text-xs text-white/60">
+              Só quer a newsletter?{" "}
+              <Link href="/newsletter" className="text-[#ffc60a] font-semibold underline hover:text-[#ffd63d] transition">
+                Inscreva-se sem criar conta
+              </Link>
+            </p>
 
             <p className="mt-4 text-center text-[11px] text-white/50 leading-relaxed">
               Ao criar uma conta, você concorda com nossos{" "}

@@ -3,13 +3,10 @@
  *
  * Docs: https://developers.beehiiv.com/docs
  *
- * Funções implementadas:
- *  - getSubscription: busca assinante por email
- *  - listPosts: lista edições publicadas
- *
- * TODO (time de tech):
- *  - Expandir conforme necessidade (criar subscriber, unsubscribe, etc.)
- *  - Configurar webhook no painel Beehiiv apontando para /api/webhooks/beehiiv
+ * Endpoints implementados:
+ *  - listPosts: lista edições publicadas (com paginação + ordenação)
+ *  - getSubscriptionByEmail: busca assinante por email
+ *  - subscribe: inscreve email novo na newsletter
  */
 
 const BEEHIIV_API_BASE = "https://api.beehiiv.com/v2";
@@ -46,34 +43,120 @@ async function beehiivFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+// ===================== Tipos =====================
+
+export interface BeehiivPost {
+  id: string;
+  title: string;
+  subtitle?: string;
+  slug: string;
+  /** UNIX timestamp em segundos */
+  publish_date: number;
+  /** UNIX timestamp em segundos */
+  created: number;
+  preview_text?: string;
+  thumbnail_url?: string;
+  web_url: string;
+  audience: "free" | "premium" | "all";
+  status: "draft" | "confirmed" | "archived";
+  authors?: string[];
+}
+
+export interface BeehiivPostsResponse {
+  data: BeehiivPost[];
+  page: number;
+  limit: number;
+  total_results: number;
+  total_pages: number;
+}
+
+export interface BeehiivSubscription {
+  id: string;
+  email: string;
+  status: "active" | "validating" | "invalid" | "pending" | "unsubscribed";
+  created: number;
+  subscription_tier: "free" | "premium";
+}
+
+// ===================== Funções =====================
+
 /**
- * Busca assinante Beehiiv por email.
- * Útil pra vincular Clerk user com beehiiv_subscription_id.
+ * Lista as edições publicadas (mais recentes primeiro por padrão).
  */
-export async function getSubscriptionByEmail(email: string) {
+export async function listPosts(options?: {
+  limit?: number;
+  page?: number;
+  status?: "draft" | "confirmed" | "archived";
+}): Promise<BeehiivPostsResponse> {
   const { publicationId } = getBeehiivCredentials();
-  const encoded = encodeURIComponent(email);
-  return beehiivFetch<{
-    data: { id: string; email: string; status: string };
-  }>(`/publications/${publicationId}/subscriptions/by_email/${encoded}`);
+  const params = new URLSearchParams();
+  params.set("limit", String(options?.limit ?? 10));
+  params.set("page", String(options?.page ?? 1));
+  params.set("order_by", "publish_date");
+  params.set("direction", "desc");
+  params.set("status", options?.status ?? "confirmed");
+
+  return beehiivFetch<BeehiivPostsResponse>(
+    `/publications/${publicationId}/posts?${params.toString()}`,
+  );
 }
 
 /**
- * Lista as edições publicadas da newsletter.
+ * Busca assinante Beehiiv por email.
  */
-export async function listPosts(options?: { limit?: number }) {
+export async function getSubscriptionByEmail(
+  email: string,
+): Promise<{ data: BeehiivSubscription } | null> {
   const { publicationId } = getBeehiivCredentials();
-  const params = new URLSearchParams();
-  if (options?.limit) params.set("limit", String(options.limit));
+  const encoded = encodeURIComponent(email);
+  try {
+    return await beehiivFetch<{ data: BeehiivSubscription }>(
+      `/publications/${publicationId}/subscriptions/by_email/${encoded}`,
+    );
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("404")) return null;
+    throw err;
+  }
+}
 
-  return beehiivFetch<{
-    data: Array<{
-      id: string;
-      title: string;
-      subtitle?: string;
-      slug: string;
-      published_at: string;
-      web_url: string;
-    }>;
-  }>(`/publications/${publicationId}/posts?${params.toString()}`);
+/**
+ * Inscreve um email novo na newsletter.
+ *
+ * @param email Email a ser inscrito
+ * @param utmSource Opcional, identifica de onde veio o subscriber (ex: "lado-b-app")
+ */
+export async function subscribe(
+  email: string,
+  options?: {
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+    referringSite?: string;
+    sendWelcomeEmail?: boolean;
+  },
+): Promise<{ data: BeehiivSubscription }> {
+  const { publicationId } = getBeehiivCredentials();
+
+  return beehiivFetch<{ data: BeehiivSubscription }>(
+    `/publications/${publicationId}/subscriptions`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        email,
+        reactivate_existing: false,
+        send_welcome_email: options?.sendWelcomeEmail ?? true,
+        utm_source: options?.utmSource ?? "lado-b-app",
+        utm_medium: options?.utmMedium ?? "web",
+        utm_campaign: options?.utmCampaign,
+        referring_site: options?.referringSite,
+      }),
+    },
+  );
+}
+
+/**
+ * Helper: formata UNIX timestamp da Beehiiv pra Date.
+ */
+export function beehiivDate(unix: number): Date {
+  return new Date(unix * 1000);
 }

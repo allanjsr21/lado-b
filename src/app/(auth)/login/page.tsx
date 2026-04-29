@@ -178,6 +178,12 @@ export default function LoginPage() {
                 Criar conta
               </Link>
             </p>
+            <p className="mt-2 text-center text-xs text-black/60">
+              Só quer receber a newsletter?{" "}
+              <Link href="/newsletter" className="text-black font-semibold underline hover:text-[#ffc60a] transition">
+                Inscreva-se aqui
+              </Link>
+            </p>
           </div>
         </GlassEffect>
       </div>
