@@ -30,6 +30,12 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Remove API routes (incompatíveis com static export)
+        # As rotas de API só funcionam no Vercel (runtime Node.js).
+        # Para o demo no GitHub Pages, removemos temporariamente antes do build.
+        # Os arquivos continuam no repositório pra quando o time fizer o deploy real.
+        run: rm -rf src/app/api
+
       - name: Build (static export)
         env:
           GITHUB_PAGES: "true"

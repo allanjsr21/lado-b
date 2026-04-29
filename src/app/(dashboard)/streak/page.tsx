@@ -1,22 +1,34 @@
 import { Mail } from "lucide-react";
+import { auth } from "@clerk/nextjs/server";
 import { GlassEffect } from "@/components/ui/glass-effect";
-import { listPosts, beehiivDate, type BeehiivPost } from "@/lib/beehiiv";
+import { listPosts, beehiivDate } from "@/lib/beehiiv";
+import {
+  isSupabaseConfigured,
+  getUserStreak,
+  getReadingDays,
+} from "@/lib/supabase";
 import { StreakContent } from "./streak-content";
 
 /**
  * Página Streak (Home) — server component.
  *
- * Faz fetch das edições mais recentes da Beehiiv em build-time
- * (compatível com static export do GitHub Pages) e passa o card
- * renderizado como prop pra parte interativa (StreakContent).
+ * Busca em paralelo:
+ *  1. Última edição Beehiiv (build-time no GitHub Pages, runtime no Vercel)
+ *  2. Streak real do Supabase (runtime, requer Vercel + Supabase configurados)
+ *  3. Dias lidos no mês atual (runtime, idem)
  *
- * TODO (time de tech):
- *  - Buscar streak real do Supabase (via Clerk userId)
- *  - Webhook Beehiiv pra registrar leituras (precisa Vercel/edge runtime)
+ * Fallback: se Supabase/Clerk não estiver configurado, usa dados mock.
  */
 
+// Mock para demo sem Supabase
+const MOCK_READ_DAYS = [new Date().getDate() - 1];
+const MOCK_STREAK = { currentStreak: 1, longestStreak: 1 };
+
 export default async function StreakPage() {
-  let latestPost: BeehiivPost | null = null;
+  const today = new Date();
+
+  // ── 1. Edição mais recente (Beehiiv) ──────────────────────────────────
+  let latestPost = null;
   try {
     const { data } = await listPosts({ limit: 1 });
     latestPost = data[0] ?? null;
@@ -24,6 +36,33 @@ export default async function StreakPage() {
     console.error("[streak] Beehiiv fetch failed:", err);
   }
 
+  // ── 2. Streak + dias lidos (Supabase + Clerk) ─────────────────────────
+  let currentStreak = MOCK_STREAK.currentStreak;
+  let longestStreak = MOCK_STREAK.longestStreak;
+  let readDays = MOCK_READ_DAYS;
+
+  if (isSupabaseConfigured()) {
+    try {
+      const { userId } = await auth();
+
+      if (userId) {
+        const [streakData, days] = await Promise.all([
+          getUserStreak(userId),
+          getReadingDays(userId, today.getFullYear(), today.getMonth()),
+        ]);
+
+        if (streakData) {
+          currentStreak = streakData.currentStreak;
+          longestStreak = streakData.longestStreak;
+        }
+        readDays = days;
+      }
+    } catch (err) {
+      console.error("[streak] Supabase fetch failed:", err);
+    }
+  }
+
+  // ── 3. Card da última edição ──────────────────────────────────────────
   const latestEditionCard = latestPost ? (
     <GlassEffect
       className="rounded-2xl"
@@ -78,5 +117,12 @@ export default async function StreakPage() {
     </GlassEffect>
   );
 
-  return <StreakContent latestEditions={latestEditionCard} />;
+  return (
+    <StreakContent
+      latestEditions={latestEditionCard}
+      currentStreak={currentStreak}
+      longestStreak={longestStreak}
+      readDays={readDays}
+    />
+  );
 }

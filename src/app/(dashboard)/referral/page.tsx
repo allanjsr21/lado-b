@@ -1,63 +1,93 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import { Copy, Check, Mail, Shield, Loader2, Gift, BookOpen } from "lucide-react";
 import { Card, PageHeader } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 
 /**
  * Página Indicar — programa de indicação com verificação OTP por email.
  *
- * Fluxo de segurança:
- *  1. Usuário entra na página → verifica se email já foi verificado
- *  2. Se NÃO: exibe form pra solicitar código OTP (6 dígitos)
- *  3. Backend (POST /api/referral/verify-email):
- *     - Gera código aleatório
- *     - Salva em otp_codes (user_id, code, expires_at)
- *     - Envia via Resend pro email do usuário
- *  4. Usuário digita o código → POST /api/referral/confirm-otp:
- *     - Valida código + expiração
- *     - Marca users.referral_email_verified = TRUE
- *     - Trigger do Supabase gera ref_code único
- *  5. Página atualiza pra mostrar o link de indicação único
+ * Fluxo:
+ *  1. Carrega estado atual do usuário via /api/referral/status
+ *  2. Se email não verificado: mostra botão pra solicitar OTP
+ *  3. Envia código via /api/referral/send-otp (Resend → email do Clerk)
+ *  4. Usuário digita código → /api/referral/verify-otp valida e libera ref_code
+ *  5. Exibe link de indicação único
  *
- * TODO (time de tech):
- *  - Conectar com rotas /api/referral/verify-email e /api/referral/confirm-otp
- *  - Buscar status do user (referral_email_verified, ref_code) via Supabase
- *  - Rate limiting: 1 código a cada 60s por email
+ * Em modo demo (sem Supabase/Clerk): simula o fluxo localmente.
  */
 
-type Step = "verify-prompt" | "verify-code" | "unlocked";
+type Step = "loading" | "verify-prompt" | "verify-code" | "unlocked";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://ladob.com.br";
 
 export default function ReferralPage() {
-  // Mock: troque isso pelo estado real do user no Supabase
-  const [step, setStep] = useState<Step>("verify-prompt");
+  const { user, isLoaded } = useUser();
+
+  const [step, setStep] = useState<Step>("loading");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Mock do user (substituir por useUser do Clerk)
-  const userEmail = "voce@example.com";
-  const refCode = "yz222k4l4r"; // vem do Supabase quando verified
-  const referralLink = `https://ladob.com.br/?ref=${refCode}`;
-  const confirmed = 0;
-  const pending = 0;
+  // Dados reais
+  const [refCode, setRefCode] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState(0);
+  const [pending, setPending] = useState(0);
+  const [sentEmail, setSentEmail] = useState<string | null>(null);
 
+  const userEmail = user?.emailAddresses[0]?.emailAddress ?? "voce@example.com";
+  const referralLink = refCode ? `${APP_URL}/?ref=${refCode}` : "";
+
+  // ── Carrega status ao montar ──────────────────────────────────────────
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    fetch("/api/referral/status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.email_verified && data?.ref_code) {
+          setRefCode(data.ref_code);
+          setConfirmed(data.confirmed ?? 0);
+          setPending(data.pending ?? 0);
+          setStep("unlocked");
+        } else {
+          setStep("verify-prompt");
+        }
+      })
+      .catch(() => {
+        // Sem Supabase: modo demo
+        setStep("verify-prompt");
+      });
+  }, [isLoaded]);
+
+  // ── Solicita código OTP ───────────────────────────────────────────────
   async function requestCode() {
     setLoading(true);
     setError(null);
     try {
-      // TODO: fetch('/api/referral/verify-email', { method: 'POST' })
-      await new Promise((r) => setTimeout(r, 800));
+      const res = await fetch("/api/referral/send-otp", { method: "POST" });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error ?? "Erro ao enviar código");
+
+      setSentEmail(data.email ?? userEmail);
       setStep("verify-code");
-    } catch {
-      setError("Erro ao enviar código. Tente novamente.");
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("fetch")) {
+        // Demo mode — sem API
+        setSentEmail(userEmail);
+        setStep("verify-code");
+      } else {
+        setError(err instanceof Error ? err.message : "Erro ao enviar código");
+      }
     } finally {
       setLoading(false);
     }
   }
 
+  // ── Verifica código OTP ───────────────────────────────────────────────
   async function confirmCode() {
     if (code.length !== 6) {
       setError("O código deve ter 6 dígitos.");
@@ -66,12 +96,25 @@ export default function ReferralPage() {
     setLoading(true);
     setError(null);
     try {
-      // TODO: fetch('/api/referral/confirm-otp', { method: 'POST', body: { code } })
-      await new Promise((r) => setTimeout(r, 800));
-      // Simulação: aceita qualquer código de 6 dígitos
+      const res = await fetch("/api/referral/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error ?? "Código inválido");
+
+      setRefCode(data.ref_code ?? "demo-ref-code");
       setStep("unlocked");
-    } catch {
-      setError("Código inválido ou expirado.");
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("fetch")) {
+        // Demo mode — aceita qualquer código
+        setRefCode("demo-ref-code");
+        setStep("unlocked");
+      } else {
+        setError(err instanceof Error ? err.message : "Código inválido ou expirado");
+      }
     } finally {
       setLoading(false);
     }
@@ -87,6 +130,14 @@ export default function ReferralPage() {
     }
   }
 
+  if (step === "loading" || !isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <Loader2 size={28} className="text-[#ffc60a] animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -94,7 +145,7 @@ export default function ReferralPage() {
         subtitle="Compartilhe com seus amigos e ganhe recompensas"
       />
 
-      {/* Estado 1: Verificar email */}
+      {/* ── Estado 1: Verificar email ─────────────────────────────── */}
       {step === "verify-prompt" && (
         <Card>
           <div className="flex items-start gap-4">
@@ -106,8 +157,8 @@ export default function ReferralPage() {
                 Verifique seu email pra desbloquear
               </h2>
               <p className="text-sm text-white/60 mt-1">
-                Por segurança, pedimos a confirmação do seu email antes de gerar
-                seu link único de indicação.
+                Por segurança, pedimos a confirmação do seu email antes de
+                gerar seu link único de indicação.
               </p>
               <p className="text-xs text-white/40 mt-2">
                 Enviaremos um código de 6 dígitos para{" "}
@@ -126,15 +177,13 @@ export default function ReferralPage() {
                 )}
                 Enviar código
               </button>
-              {error && (
-                <p className="mt-3 text-sm text-red-400">{error}</p>
-              )}
+              {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
             </div>
           </div>
         </Card>
       )}
 
-      {/* Estado 2: Digitar código */}
+      {/* ── Estado 2: Digitar código ──────────────────────────────── */}
       {step === "verify-code" && (
         <Card>
           <div className="max-w-md mx-auto text-center py-4">
@@ -146,8 +195,8 @@ export default function ReferralPage() {
             </h2>
             <p className="text-sm text-white/60 mt-2">
               Confira sua caixa de entrada em{" "}
-              <strong className="text-white/80">{userEmail}</strong> e digite os
-              6 dígitos abaixo.
+              <strong className="text-white/80">{sentEmail ?? userEmail}</strong>{" "}
+              e digite os 6 dígitos abaixo.
             </p>
             <input
               inputMode="numeric"
@@ -168,23 +217,23 @@ export default function ReferralPage() {
               className="mt-4 w-full rounded-xl bg-[#ffc60a] px-4 py-3 font-bold text-black transition hover:bg-[#ffd63d] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
-                <Loader2 className="animate-spin" size={16} />
+                <Loader2 className="animate-spin" size={18} />
               ) : (
-                "Confirmar"
+                "Verificar e desbloquear"
               )}
             </button>
             <button
               type="button"
-              onClick={() => setStep("verify-prompt")}
+              onClick={() => { setStep("verify-prompt"); setCode(""); setError(null); }}
               className="mt-3 text-xs text-white/50 hover:text-white transition"
             >
-              ← Enviar para outro email
+              ← Reenviar código
             </button>
           </div>
         </Card>
       )}
 
-      {/* Estado 3: Link desbloqueado */}
+      {/* ── Estado 3: Link desbloqueado ───────────────────────────── */}
       {step === "unlocked" && (
         <>
           <Card>
@@ -192,70 +241,50 @@ export default function ReferralPage() {
               <Gift size={18} className="text-[#ffc60a]" />
               <h2 className="font-semibold text-white">Seu link de indicação</h2>
             </div>
-            <p className="text-sm text-white/60 mb-4">
-              Compartilhe com amigos, colegas e familiares para acumular
-              indicações e ganhar recompensas.
-            </p>
-            <div className="flex flex-col sm:flex-row items-stretch gap-2">
-              <div className="flex-1 rounded-xl bg-white/5 border border-white/15 px-4 py-3 text-white/80 text-sm font-mono truncate">
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="flex-1 text-sm text-white/80 font-mono truncate">
                 {referralLink}
-              </div>
+              </span>
               <button
                 type="button"
                 onClick={copyLink}
-                className="rounded-xl bg-[#ffc60a] px-4 py-3 font-bold text-black transition hover:bg-[#ffd63d] flex items-center justify-center gap-2 text-sm"
+                className="flex-shrink-0 flex items-center gap-1.5 rounded-lg bg-[#ffc60a] px-3 py-1.5 text-xs font-bold text-black transition hover:bg-[#ffd63d]"
               >
-                {copied ? (
-                  <>
-                    <Check size={16} /> Copiado!
-                  </>
-                ) : (
-                  <>
-                    <Copy size={16} /> Copiar
-                  </>
-                )}
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+                {copied ? "Copiado!" : "Copiar"}
               </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
+                <div className="text-2xl font-bold text-[#ffc60a]">{confirmed}</div>
+                <div className="text-xs text-white/50 mt-1">confirmadas</div>
+              </div>
+              <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
+                <div className="text-2xl font-bold text-white/60">{pending}</div>
+                <div className="text-xs text-white/50 mt-1">pendentes</div>
+              </div>
             </div>
           </Card>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Card>
-              <div className="text-[10px] text-white/50 uppercase tracking-wider mb-1">
-                Confirmadas
-              </div>
-              <div className="text-2xl sm:text-3xl font-bold text-[#ffc60a]">
-                {confirmed}
-              </div>
-              <div className="text-xs text-white/50 mt-1">
-                pessoas que verificaram email
-              </div>
-            </Card>
-            <Card>
-              <div className="text-[10px] text-white/50 uppercase tracking-wider mb-1">
-                Pendentes
-              </div>
-              <div className="text-2xl sm:text-3xl font-bold text-white/80">
-                {pending}
-              </div>
-              <div className="text-xs text-white/50 mt-1">
-                cadastros sem verificação
-              </div>
-            </Card>
-          </div>
-
           <Card>
-            <h2 className="font-semibold text-white mb-3 flex items-center gap-2">
-              <BookOpen size={16} className="text-[#ffc60a]" />
-              Como funciona uma indicação válida
-            </h2>
-            <ol className="space-y-2 text-sm text-white/70 list-decimal list-inside">
-              <li>Você compartilha seu link único</li>
-              <li>A pessoa clica e se cadastra no LADO ₿</li>
-              <li>
-                Ela <strong className="text-[#ffc60a]">confirma o email</strong>{" "}
-                enviado pelo sistema
+            <div className="flex items-center gap-2 mb-3">
+              <BookOpen size={18} className="text-[#ffc60a]" />
+              <h2 className="font-semibold text-white">Como funciona?</h2>
+            </div>
+            <ol className="space-y-2 text-sm text-white/70">
+              <li className="flex gap-2">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#ffc60a]/20 text-[#ffc60a] text-xs font-bold flex items-center justify-center">1</span>
+                Compartilhe seu link único com amigos
               </li>
-              <li>A indicação conta automaticamente pro seu placar</li>
+              <li className="flex gap-2">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#ffc60a]/20 text-[#ffc60a] text-xs font-bold flex items-center justify-center">2</span>
+                Seu amigo se inscreve na newsletter
+              </li>
+              <li className="flex gap-2">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#ffc60a]/20 text-[#ffc60a] text-xs font-bold flex items-center justify-center">3</span>
+                Você sobe no ranking e desbloqueia recompensas
+              </li>
             </ol>
           </Card>
         </>

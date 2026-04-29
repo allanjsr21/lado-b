@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
+import { ptBR } from "@clerk/localizations";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -22,14 +24,16 @@ export const metadata: Metadata = {
 };
 
 /**
- * Layout raiz.
+ * Layout raiz com ClerkProvider.
  *
- * MODO DEMO (GitHub Pages): sem ClerkProvider (incompatível com static export).
+ * ClerkProvider é client-side e compatível com static export (GitHub Pages).
+ * O que NÃO é compatível com static export:
+ *  - auth() server-side (usado só em Vercel/produção)
+ *  - API routes (removidas pelo workflow antes do build estático)
+ *  - Middleware (já removido anteriormente)
  *
- * Quando for pra produção (Vercel), restaurar:
- *   import { ClerkProvider } from "@clerk/nextjs";
- *   import { ptBR } from "@clerk/localizations";
- *   <ClerkProvider localization={ptBR} appearance={{ ... }}>...</ClerkProvider>
+ * TODO (time de tech):
+ *  - Adicionar appearance theme quando tiver design system finalizado
  */
 export default function RootLayout({
   children,
@@ -37,11 +41,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="pt-BR"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    <ClerkProvider
+      localization={ptBR}
+      appearance={{
+        variables: {
+          colorPrimary: "#ffc60a",
+          colorBackground: "#000000",
+          colorText: "#ffffff",
+          colorInputBackground: "rgba(255,255,255,0.05)",
+          colorInputText: "#ffffff",
+          borderRadius: "12px",
+        },
+      }}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
-    </html>
+      <html
+        lang="pt-BR"
+        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      >
+        <body className="min-h-full flex flex-col">{children}</body>
+      </html>
+    </ClerkProvider>
   );
 }

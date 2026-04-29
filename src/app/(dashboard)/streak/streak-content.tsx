@@ -7,28 +7,40 @@ import { GlassEffect } from "@/components/ui/glass-effect";
 
 /**
  * StreakContent — parte interativa da Streak (client component).
- * O server component da página passa as edições já buscadas como children.
+ *
+ * Recebe do server component (page.tsx):
+ *  - latestEditions: card da última edição (server-rendered)
+ *  - currentStreak:  streak atual do usuário (Supabase ou mock)
+ *  - longestStreak:  recorde de streak (Supabase ou mock)
+ *  - readDays:       dias do mês corrente em que o usuário leu (Supabase ou mock)
  */
 
-const MOCK_READ_DAYS = [new Date().getDate() - 1];
-
 interface StreakContentProps {
-  /** Slot pra edições da newsletter (server-rendered da Beehiiv) */
   latestEditions: React.ReactNode;
+  currentStreak: number;
+  longestStreak: number;
+  readDays: number[];
 }
 
-export function StreakContent({ latestEditions }: StreakContentProps) {
+export function StreakContent({
+  latestEditions,
+  currentStreak,
+  longestStreak,
+  readDays,
+}: StreakContentProps) {
   const [view, setView] = useState<"weekly" | "monthly">("weekly");
   const today = new Date();
-  const currentStreak = 1;
-  const recordStreak = 1;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
         <div>
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white leading-tight">
-            Que começo incrível! Bem-vindo à sua nova jornada!
+            {currentStreak >= 30
+              ? "Você é imparável! Lenda do LADO ₿! 🔥"
+              : currentStreak >= 7
+                ? `${currentStreak} dias seguidos! Você tá voando!`
+                : "Que começo incrível! Bem-vindo à sua nova jornada!"}
           </h1>
           <p className="text-white/60 text-xs sm:text-sm mt-2">
             {today.toLocaleDateString("pt-BR", {
@@ -48,7 +60,7 @@ export function StreakContent({ latestEditions }: StreakContentProps) {
           <div className="w-px h-10 bg-white/10" />
           <StreakStat
             icon={<Trophy className="text-[#ffc60a]" size={20} />}
-            value={recordStreak}
+            value={longestStreak}
             label="streak recorde"
           />
         </div>
@@ -59,9 +71,9 @@ export function StreakContent({ latestEditions }: StreakContentProps) {
           <CalendarHeader view={view} setView={setView} />
           <div className="mt-6">
             {view === "weekly" ? (
-              <WeeklyCalendar readDays={MOCK_READ_DAYS} />
+              <WeeklyCalendar readDays={readDays} />
             ) : (
-              <MonthlyCalendar readDays={MOCK_READ_DAYS} />
+              <MonthlyCalendar readDays={readDays} />
             )}
           </div>
         </Card>
@@ -71,32 +83,65 @@ export function StreakContent({ latestEditions }: StreakContentProps) {
             <Target size={18} className="text-[#ffc60a]" />
             <h2 className="font-semibold text-white">Próxima conquista</h2>
           </div>
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-[#ffc60a]/5 border border-[#ffc60a]/20">
-            <div className="w-12 h-12 rounded-lg bg-[#ffc60a]/20 flex items-center justify-center">
-              <Rocket size={22} className="text-[#ffc60a]" />
-            </div>
-            <div>
-              <div className="font-semibold text-white text-sm">
-                Starter Pack
-              </div>
-              <div className="text-xs text-white/60">
-                leia 7 edições seguidas
-              </div>
-              <div className="mt-1">
-                <ProgressBar value={1} max={7} />
-              </div>
-            </div>
-          </div>
+          <NextMission currentStreak={currentStreak} />
         </Card>
       </div>
 
-      {/* Edições da Beehiiv (renderizado pelo server component) */}
       {latestEditions}
     </div>
   );
 }
 
-// ===================== Sub-componentes =====================
+// ── Próxima missão dinâmica ─────────────────────────────────────────────────
+
+const MISSIONS = [
+  { name: "Starter Pack", target: 7, icon: Rocket },
+  { name: "Criador de Hábitos", target: 21, icon: Rocket },
+  { name: "Tons de Informação", target: 50, icon: Rocket },
+  { name: "Yellow Crew", target: 100, icon: Rocket },
+  { name: "Colunista Invisível", target: 150, icon: Rocket },
+];
+
+function NextMission({ currentStreak }: { currentStreak: number }) {
+  const next = MISSIONS.find((m) => currentStreak < m.target);
+
+  if (!next) {
+    return (
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-[#ffc60a]/5 border border-[#ffc60a]/20">
+        <div className="w-12 h-12 rounded-lg bg-[#ffc60a]/20 flex items-center justify-center">
+          <Trophy size={22} className="text-[#ffc60a]" />
+        </div>
+        <div>
+          <div className="font-semibold text-white text-sm">Lenda!</div>
+          <div className="text-xs text-white/60">
+            Todas as conquistas desbloqueadas
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const Icon = next.icon;
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-xl bg-[#ffc60a]/5 border border-[#ffc60a]/20">
+      <div className="w-12 h-12 rounded-lg bg-[#ffc60a]/20 flex items-center justify-center">
+        <Icon size={22} className="text-[#ffc60a]" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-white text-sm">{next.name}</div>
+        <div className="text-xs text-white/60">
+          {next.target - currentStreak} dias restantes
+        </div>
+        <div className="mt-1">
+          <ProgressBar value={currentStreak} max={next.target} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Sub-componentes ─────────────────────────────────────────────────────────
 
 function Card({
   children,

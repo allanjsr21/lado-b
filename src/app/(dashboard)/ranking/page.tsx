@@ -1,42 +1,73 @@
 "use client";
 
-import { useState } from "react";
-import { Trophy, Flame, Users } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Trophy, Flame, Users, Loader2 } from "lucide-react";
 import { Card, PageHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 /**
  * Página Ranking — placar dos leitores com mais streak e indicações.
  *
- * Duas abas:
- *  1. Streak — ordenado por dias consecutivos de leitura
- *  2. Indicadores — ordenado por indicações válidas
+ * Busca dados via fetch client-side pra evitar incompatibilidade
+ * com static export do GitHub Pages (fallback pra mock se sem Supabase).
  *
- * TODO (time de tech):
- *  - Buscar do Supabase com LIMIT 50 ORDER BY current_streak DESC
- *  - Expor view materializada pra não pesar em produção
- *  - Exibir "Sua posição" destacada no topo
+ * TODO (time de tech): expor view materializada no Supabase pra
+ * não recalcular ranking a cada request em produção.
  */
 
 type TabId = "streak" | "referrals";
 
-// Mock (substituir por fetch do Supabase)
-const MOCK_STREAK = Array.from({ length: 15 }).map((_, i) => ({
+interface RankRow {
+  position: number;
+  user_id: string;
+  full_name: string;
+  value: number;
+  isCurrentUser?: boolean;
+}
+
+// Mock para demo sem Supabase
+const MOCK_STREAK: RankRow[] = Array.from({ length: 15 }).map((_, i) => ({
   position: i + 1,
-  name: ["Lucas M.", "Maria S.", "João P.", "Ana R.", "Pedro L."][i % 5] + (i > 4 ? ` #${i}` : ""),
-  streak: 45 - i * 2,
+  user_id: `mock-${i}`,
+  full_name:
+    ["Lucas M.", "Maria S.", "João P.", "Ana R.", "Pedro L."][i % 5] +
+    (i > 4 ? ` #${i}` : ""),
+  value: 45 - i * 2,
   isCurrentUser: i === 0,
 }));
 
-const MOCK_REFERRALS = Array.from({ length: 15 }).map((_, i) => ({
+const MOCK_REFERRALS: RankRow[] = Array.from({ length: 15 }).map((_, i) => ({
   position: i + 1,
-  name: ["Carlos F.", "Bia T.", "Rafa K.", "Sofia M.", "Diego B."][i % 5] + (i > 4 ? ` #${i}` : ""),
-  referrals: 28 - i,
+  user_id: `mock-ref-${i}`,
+  full_name:
+    ["Carlos F.", "Bia T.", "Rafa K.", "Sofia M.", "Diego B."][i % 5] +
+    (i > 4 ? ` #${i}` : ""),
+  value: 28 - i,
   isCurrentUser: false,
 }));
 
 export default function RankingPage() {
   const [tab, setTab] = useState<TabId>("streak");
+  const [rows, setRows] = useState<RankRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/ranking?type=${tab}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.rows?.length) {
+          setRows(data.rows);
+        } else {
+          // Fallback mock
+          setRows(tab === "streak" ? MOCK_STREAK : MOCK_REFERRALS);
+        }
+      })
+      .catch(() => {
+        setRows(tab === "streak" ? MOCK_STREAK : MOCK_REFERRALS);
+      })
+      .finally(() => setLoading(false));
+  }, [tab]);
 
   return (
     <div className="space-y-6">
@@ -45,7 +76,6 @@ export default function RankingPage() {
         subtitle="Os leitores mais engajados do LADO ₿"
       />
 
-      {/* Tabs */}
       <div className="flex gap-2 p-1 rounded-xl bg-white/5 border border-white/10 w-fit">
         <TabButton
           active={tab === "streak"}
@@ -62,18 +92,24 @@ export default function RankingPage() {
       </div>
 
       <Card className="p-0 sm:p-0">
-        <div className="divide-y divide-white/5">
-          {(tab === "streak" ? MOCK_STREAK : MOCK_REFERRALS).map((row) => (
-            <RankRow
-              key={row.position}
-              position={row.position}
-              name={row.name}
-              value={tab === "streak" ? (row as typeof MOCK_STREAK[0]).streak : (row as typeof MOCK_REFERRALS[0]).referrals}
-              valueLabel={tab === "streak" ? "dias" : "indicações"}
-              isCurrentUser={row.isCurrentUser}
-            />
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 size={24} className="text-[#ffc60a] animate-spin" />
+          </div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {rows.map((row) => (
+              <RankRow
+                key={row.position}
+                position={row.position}
+                name={row.full_name}
+                value={row.value}
+                valueLabel={tab === "streak" ? "dias" : "indicações"}
+                isCurrentUser={row.isCurrentUser ?? false}
+              />
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -96,9 +132,7 @@ function TabButton({
       onClick={onClick}
       className={cn(
         "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-        active
-          ? "bg-[#ffc60a] text-black"
-          : "text-white/60 hover:text-white",
+        active ? "bg-[#ffc60a] text-black" : "text-white/60 hover:text-white",
       )}
     >
       {icon}
@@ -131,9 +165,7 @@ function RankRow({
       <div
         className={cn(
           "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
-          isPodium
-            ? "bg-[#ffc60a] text-black"
-            : "bg-white/5 text-white/60",
+          isPodium ? "bg-[#ffc60a] text-black" : "bg-white/5 text-white/60",
         )}
       >
         {isPodium ? <Trophy size={14} /> : position}
