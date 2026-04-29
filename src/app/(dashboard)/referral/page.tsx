@@ -1,21 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useUser } from "@clerk/nextjs";
 import { Copy, Check, Mail, Shield, Loader2, Gift, BookOpen } from "lucide-react";
 import { Card, PageHeader } from "@/components/ui/card";
 
 /**
  * Página Indicar — programa de indicação com verificação OTP por email.
  *
- * Fluxo:
- *  1. Carrega estado atual do usuário via /api/referral/status
- *  2. Se email não verificado: mostra botão pra solicitar OTP
- *  3. Envia código via /api/referral/send-otp (Resend → email do Clerk)
- *  4. Usuário digita código → /api/referral/verify-otp valida e libera ref_code
- *  5. Exibe link de indicação único
+ * Fluxo (Vercel + Supabase + Resend configurados):
+ *  1. GET /api/referral/status → verifica se email já foi verificado
+ *  2. POST /api/referral/send-otp → gera OTP + envia via Resend
+ *  3. POST /api/referral/verify-otp → valida código + libera ref_code
  *
- * Em modo demo (sem Supabase/Clerk): simula o fluxo localmente.
+ * Modo demo (GitHub Pages / sem backend):
+ *  - Falha silenciosa nas chamadas de API → simula fluxo localmente
+ *
+ * NOTA: useUser() do Clerk não é usado aqui pois Clerk v7 usa Server Actions
+ * internamente, incompatíveis com static export. O email do usuário vem da
+ * resposta do /api/referral/send-otp (que usa auth() server-side no Vercel).
  */
 
 type Step = "loading" | "verify-prompt" | "verify-code" | "unlocked";
@@ -23,27 +25,21 @@ type Step = "loading" | "verify-prompt" | "verify-code" | "unlocked";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://ladob.com.br";
 
 export default function ReferralPage() {
-  const { user, isLoaded } = useUser();
-
   const [step, setStep] = useState<Step>("loading");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Dados reais
   const [refCode, setRefCode] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(0);
   const [pending, setPending] = useState(0);
-  const [sentEmail, setSentEmail] = useState<string | null>(null);
+  const [sentEmail, setSentEmail] = useState<string>("seu e-mail");
 
-  const userEmail = user?.emailAddresses[0]?.emailAddress ?? "voce@example.com";
   const referralLink = refCode ? `${APP_URL}/?ref=${refCode}` : "";
 
   // ── Carrega status ao montar ──────────────────────────────────────────
   useEffect(() => {
-    if (!isLoaded) return;
-
     fetch("/api/referral/status")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -56,11 +52,8 @@ export default function ReferralPage() {
           setStep("verify-prompt");
         }
       })
-      .catch(() => {
-        // Sem Supabase: modo demo
-        setStep("verify-prompt");
-      });
-  }, [isLoaded]);
+      .catch(() => setStep("verify-prompt"));
+  }, []);
 
   // ── Solicita código OTP ───────────────────────────────────────────────
   async function requestCode() {
@@ -68,20 +61,19 @@ export default function ReferralPage() {
     setError(null);
     try {
       const res = await fetch("/api/referral/send-otp", { method: "POST" });
-      const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error ?? "Erro ao enviar código");
-
-      setSentEmail(data.email ?? userEmail);
-      setStep("verify-code");
-    } catch (err) {
-      if (err instanceof Error && err.message.includes("fetch")) {
-        // Demo mode — sem API
-        setSentEmail(userEmail);
-        setStep("verify-code");
+      if (res.ok) {
+        const data = await res.json();
+        setSentEmail(data.email ?? "seu e-mail");
       } else {
-        setError(err instanceof Error ? err.message : "Erro ao enviar código");
+        // Demo mode: API não disponível (GitHub Pages)
+        setSentEmail("seu e-mail (demo)");
       }
+      setStep("verify-code");
+    } catch {
+      // Demo: sem conexão com API
+      setSentEmail("seu e-mail (demo)");
+      setStep("verify-code");
     } finally {
       setLoading(false);
     }
@@ -101,19 +93,23 @@ export default function ReferralPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
-      const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error ?? "Código inválido");
-
-      setRefCode(data.ref_code ?? "demo-ref-code");
+      if (res.ok) {
+        const data = await res.json();
+        setRefCode(data.ref_code ?? "demo-ref-code");
+      } else {
+        const data = await res.json();
+        throw new Error(data.error ?? "Código inválido");
+      }
       setStep("unlocked");
     } catch (err) {
-      if (err instanceof Error && err.message.includes("fetch")) {
-        // Demo mode — aceita qualquer código
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("fetch") || msg === "") {
+        // Demo: aceita qualquer código de 6 dígitos
         setRefCode("demo-ref-code");
         setStep("unlocked");
       } else {
-        setError(err instanceof Error ? err.message : "Código inválido ou expirado");
+        setError(msg || "Código incorreto ou expirado.");
       }
     } finally {
       setLoading(false);
@@ -130,7 +126,7 @@ export default function ReferralPage() {
     }
   }
 
-  if (step === "loading" || !isLoaded) {
+  if (step === "loading") {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
         <Loader2 size={28} className="text-[#ffc60a] animate-spin" />
@@ -159,10 +155,6 @@ export default function ReferralPage() {
               <p className="text-sm text-white/60 mt-1">
                 Por segurança, pedimos a confirmação do seu email antes de
                 gerar seu link único de indicação.
-              </p>
-              <p className="text-xs text-white/40 mt-2">
-                Enviaremos um código de 6 dígitos para{" "}
-                <strong className="text-white/70">{userEmail}</strong>
               </p>
               <button
                 type="button"
@@ -195,8 +187,8 @@ export default function ReferralPage() {
             </h2>
             <p className="text-sm text-white/60 mt-2">
               Confira sua caixa de entrada em{" "}
-              <strong className="text-white/80">{sentEmail ?? userEmail}</strong>{" "}
-              e digite os 6 dígitos abaixo.
+              <strong className="text-white/80">{sentEmail}</strong> e digite
+              os 6 dígitos abaixo.
             </p>
             <input
               inputMode="numeric"
@@ -224,7 +216,11 @@ export default function ReferralPage() {
             </button>
             <button
               type="button"
-              onClick={() => { setStep("verify-prompt"); setCode(""); setError(null); }}
+              onClick={() => {
+                setStep("verify-prompt");
+                setCode("");
+                setError(null);
+              }}
               className="mt-3 text-xs text-white/50 hover:text-white transition"
             >
               ← Reenviar código
@@ -257,11 +253,15 @@ export default function ReferralPage() {
 
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
-                <div className="text-2xl font-bold text-[#ffc60a]">{confirmed}</div>
+                <div className="text-2xl font-bold text-[#ffc60a]">
+                  {confirmed}
+                </div>
                 <div className="text-xs text-white/50 mt-1">confirmadas</div>
               </div>
               <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
-                <div className="text-2xl font-bold text-white/60">{pending}</div>
+                <div className="text-2xl font-bold text-white/60">
+                  {pending}
+                </div>
                 <div className="text-xs text-white/50 mt-1">pendentes</div>
               </div>
             </div>
@@ -274,15 +274,21 @@ export default function ReferralPage() {
             </div>
             <ol className="space-y-2 text-sm text-white/70">
               <li className="flex gap-2">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#ffc60a]/20 text-[#ffc60a] text-xs font-bold flex items-center justify-center">1</span>
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#ffc60a]/20 text-[#ffc60a] text-xs font-bold flex items-center justify-center">
+                  1
+                </span>
                 Compartilhe seu link único com amigos
               </li>
               <li className="flex gap-2">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#ffc60a]/20 text-[#ffc60a] text-xs font-bold flex items-center justify-center">2</span>
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#ffc60a]/20 text-[#ffc60a] text-xs font-bold flex items-center justify-center">
+                  2
+                </span>
                 Seu amigo se inscreve na newsletter
               </li>
               <li className="flex gap-2">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#ffc60a]/20 text-[#ffc60a] text-xs font-bold flex items-center justify-center">3</span>
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#ffc60a]/20 text-[#ffc60a] text-xs font-bold flex items-center justify-center">
+                  3
+                </span>
                 Você sobe no ranking e desbloqueia recompensas
               </li>
             </ol>

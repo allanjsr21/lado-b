@@ -1,5 +1,4 @@
 import { Mail } from "lucide-react";
-import { auth } from "@clerk/nextjs/server";
 import { GlassEffect } from "@/components/ui/glass-effect";
 import { listPosts, beehiivDate } from "@/lib/beehiiv";
 import {
@@ -43,6 +42,9 @@ export default async function StreakPage() {
 
   if (isSupabaseConfigured()) {
     try {
+      // Dynamic import evita que Next.js detecte Server Actions do Clerk
+      // durante o build estático do GitHub Pages
+      const { auth } = await import("@clerk/nextjs/server");
       const { userId } = await auth();
 
       if (userId) {

@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
-import { ptBR } from "@clerk/localizations";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,16 +22,20 @@ export const metadata: Metadata = {
 };
 
 /**
- * Layout raiz com ClerkProvider.
+ * Layout raiz.
  *
- * ClerkProvider é client-side e compatível com static export (GitHub Pages).
- * O que NÃO é compatível com static export:
- *  - auth() server-side (usado só em Vercel/produção)
- *  - API routes (removidas pelo workflow antes do build estático)
- *  - Middleware (já removido anteriormente)
+ * ClerkProvider é adicionado pelo time de tech ao migrar pra Vercel.
+ * Clerk v7 usa Server Actions internamente — incompatível com static export
+ * do GitHub Pages. Por isso ClerkProvider NÃO está aqui no layout.
  *
- * TODO (time de tech):
- *  - Adicionar appearance theme quando tiver design system finalizado
+ * Auth nas páginas client: via fetch('/api/...') — as API routes usam auth()
+ * server-side (só funciona no Vercel). No GitHub Pages, as chamadas voltam
+ * vazio e as páginas mostram o modo demo com fallback.
+ *
+ * TODO (time de tech — ao migrar pra Vercel):
+ *   import { ClerkProvider } from "@clerk/nextjs";
+ *   import { ptBR } from "@clerk/localizations";
+ *   Envolver <html> com <ClerkProvider localization={ptBR} appearance={{...}}>
  */
 export default function RootLayout({
   children,
@@ -41,25 +43,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider
-      localization={ptBR}
-      appearance={{
-        variables: {
-          colorPrimary: "#ffc60a",
-          colorBackground: "#000000",
-          colorText: "#ffffff",
-          colorInputBackground: "rgba(255,255,255,0.05)",
-          colorInputText: "#ffffff",
-          borderRadius: "12px",
-        },
-      }}
+    <html
+      lang="pt-BR"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <html
-        lang="pt-BR"
-        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      >
-        <body className="min-h-full flex flex-col">{children}</body>
-      </html>
-    </ClerkProvider>
+      <body className="min-h-full flex flex-col">{children}</body>
+    </html>
   );
 }
