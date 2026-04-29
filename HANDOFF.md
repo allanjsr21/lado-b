@@ -1,116 +1,110 @@
 # 🚀 LADO ₿ — Handoff para o time de tech
 
-Guia completo pra quem vai colocar em produção. Tudo que precisa saber em um só arquivo.
+> **Atualizado:** 29 de abril de 2026
 
-> **Site ao vivo (modo demo):** https://allanjsr21.github.io/lado-b/
-> **Repositório:** https://github.com/allanjsr21/lado-b
+## Links
 
----
-
-## 🎯 TL;DR
-
-1. **Frontend 100% pronto** — 11 rotas, responsive, dark mode com identidade dourada, backgrounds WebGL.
-2. **Modo demo ativo no GitHub Pages** — qualquer clique em "Entrar" vai pro dashboard. Auth desabilitada temporariamente pro review visual.
-3. **Integração Clerk/Supabase/Resend/Beehiiv pronta pra ligar** — arquivos, libs, schema SQL, hooks, webhooks, middleware, tudo em `TODO (time de tech)` no código.
-4. **Deploy alvo real = Vercel + Supabase + Clerk** (GitHub Pages é só pra review estático).
-
----
-
-## 📊 Estado das páginas
-
-### Públicas (auth)
-
-| Rota | Status | Observação |
-|---|---|---|
-| `/` | ✅ | Redireciona pra `/streak` (client-side, compatível com export) |
-| `/login` | ✅ | Form completo + Google OAuth ready; hoje só redireciona |
-| `/signup` | ✅ | Form com nome/email/senha/confirmar + verificação OTP stub |
-| `/forgot-password` | ✅ | Solicita email → mostra tela de confirmação |
-
-### Autenticadas (dashboard)
-
-| Rota | Status | Dados |
-|---|---|---|
-| `/streak` | ✅ | Saudação + streak atual/record + calendário (semanal/mensal) + última edição + próxima conquista |
-| `/ranking` | ✅ | Tabs Streak + Indicações, usuário atual destacado, pódio dourado |
-| `/missions` | ✅ | 5 missões com progress bars + badges conquistadas |
-| `/referral` | ✅ | Fluxo OTP (verify-prompt → verify-code → unlocked) + estatísticas |
-| `/giveaway` | ✅ | Banner ativo + regras + inscrições |
-| `/coupons` | ✅ | 4 parceiros (Binance, Ledger, Trezor, Remessa Online) com copy + CTA |
-
-Todas usam a **Sidebar** compartilhada (`src/components/layout/sidebar.tsx`) com:
-- Drawer no mobile (hamburger)
-- Ícones lucide-react
-- Active state dourado
-- Logout (hoje só redireciona; TODO Clerk `useClerk().signOut()`)
-
----
-
-## 🎨 Identidade visual
-
-| Token | Valor |
+| Ambiente | URL |
 |---|---|
-| Cor primária | `#ffc60a` (dourado Bitcoin) |
-| Cor de fundo | Preto puro (`#000000`) |
-| Logo | `public/logo-dark.svg` (versão sem fundo branco) |
-| Fontes | Geist Sans + Geist Mono (Next.js) |
-| Cards | Liquid glass com `backdrop-blur-xl` + borda sutil + glow dourado |
-| Backgrounds | Aurora (blobs) em `/login`, sólido em dashboard |
+| **Produção (Vercel)** | https://lado-b-khaki.vercel.app |
+| **GitHub Pages (demo estático)** | https://allanjsr21.github.io/lado-b/ |
+| **Repositório** | https://github.com/allanjsr21/lado-b |
 
 ---
 
-## 🏗️ Stack
+## ✅ O que já está pronto e no ar
 
-- **Next.js 16** (App Router + Turbopack)
-- **TypeScript + Tailwind CSS 4**
-- **lucide-react** (ícones)
-- **framer-motion** (animações)
-- **three.js + ogl** (backgrounds WebGL)
-- **@clerk/nextjs** + `@clerk/localizations` (auth ready, em stub)
-- **@supabase/supabase-js** (client instalado)
-- **resend** (client instalado)
+| Item | Status | Detalhe |
+|---|---|---|
+| Frontend — 11 rotas | ✅ | Responsive, dark mode, identidade dourada |
+| ClerkProvider no layout | ✅ | `src/app/layout.tsx` — ptBR + tema dourado |
+| Supabase — org + projeto | ✅ | `lado-b` em São Paulo (sa-east-1) |
+| Supabase — 7 tabelas + RLS | ✅ | Schema rodado, 6 missões seedadas |
+| Resend — conta + API key | ✅ | `sendOtpEmail()` em `src/lib/resend.ts` |
+| Beehiiv — fetch de edições | ✅ | Aparece no `/streak` em build-time |
+| API routes | ✅ | Ver lista abaixo |
+| Deploy Vercel | ✅ | 15 env vars configuradas, status: Ready |
+| GitHub Pages | ✅ | Deploy automático a cada push em `main` |
+
+### API routes existentes
+
+| Rota | Função |
+|---|---|
+| `POST /api/subscribe` | Inscrição na newsletter via Beehiiv |
+| `GET /api/missions` | Lista missões do usuário |
+| `GET /api/ranking` | Ranking por streak e indicações |
+| `POST /api/referral/send-otp` | Envia OTP por email via Resend |
+| `POST /api/referral/verify-otp` | Valida OTP, gera `ref_code` |
+| `GET /api/referral/status` | Status de verificação do usuário |
+| `POST /api/webhooks/clerk` | Sincroniza usuário novo com Supabase |
+| `POST /api/webhooks/beehiiv` | Registra leituras → atualiza streak/missões |
 
 ---
 
-## 🔧 Pra colocar em produção
+## ⏳ O que falta (configuração manual — ~30 min)
 
-### 1. Voltar autenticação (Clerk)
+### 1. Clerk — Webhook
 
-Reverter o modo demo — ativar hooks reais nas 3 páginas auth:
+No [dashboard.clerk.com](https://dashboard.clerk.com):
 
-- `src/app/(auth)/login/page.tsx` → descomentar `useSignIn()` + `signIn.create(...)` + Google OAuth
-- `src/app/(auth)/signup/page.tsx` → descomentar `useSignUp()` + `signUp.create(...)` + verificação de email
-- `src/app/(auth)/forgot-password/page.tsx` → descomentar `signIn.create({ strategy: 'reset_password_email_code' })`
+1. Ir em **Webhooks** → Add Endpoint
+2. URL: `https://lado-b-khaki.vercel.app/api/webhooks/clerk`
+3. Eventos: `user.created`, `user.updated`
+4. Copiar o **Signing Secret** gerado
+5. Adicionar em Vercel → Settings → Environment Variables:
+   ```
+   CLERK_WEBHOOK_SECRET=whsec_...
+   ```
+6. Redeploy (ou novo push em `main`)
 
-Re-adicionar `ClerkProvider` no `src/app/layout.tsx` (hoje removido pra funcionar em static export):
+### 2. Beehiiv — Webhook
 
-```tsx
-import { ClerkProvider } from "@clerk/nextjs";
-import { ptBR } from "@clerk/localizations";
+No painel [app.beehiiv.com](https://app.beehiiv.com):
 
-<ClerkProvider
-  localization={ptBR}
-  appearance={{
-    variables: {
-      colorPrimary: "#ffc60a",
-      colorBackground: "#000000",
-      colorText: "#ffffff",
-      borderRadius: "0.75rem",
-    },
-  }}
->
-  {children}
-</ClerkProvider>
-```
+1. Settings → Integrations → Webhooks → Add Webhook
+2. URL: `https://lado-b-khaki.vercel.app/api/webhooks/beehiiv`
+3. Evento: `post.opened` (contabiliza leitura para o streak)
+4. Copiar o **Webhook Secret**
+5. Adicionar em Vercel → Settings → Environment Variables:
+   ```
+   BEEHIIV_WEBHOOK_SECRET=...
+   ```
+6. Redeploy
 
-Recriar `src/middleware.ts` pra proteger rotas:
+### 3. Domínio customizado (quando tiver o domínio)
+
+Na Vercel:
+1. Settings → Domains → Add Domain
+2. Adicionar `ladob.com.br` (ou o domínio escolhido)
+3. Apontar DNS conforme instrução da Vercel
+4. Atualizar a env var `NEXT_PUBLIC_APP_URL=https://ladob.com.br`
+5. Atualizar também o domínio nos webhooks do Clerk e Beehiiv
+
+### 4. Resend — domínio próprio (para produção real)
+
+Hoje os emails saem de `onboarding@resend.dev` (domínio da Resend).
+Para usar `noreply@ladob.com.br`:
+
+1. Em [resend.com/domains](https://resend.com/domains) → Add Domain → `ladob.com.br`
+2. Configurar os registros DNS indicados (SPF, DKIM, DMARC)
+3. Atualizar em Vercel: `RESEND_FROM_EMAIL=noreply@ladob.com.br`
+
+### 5. Ativar autenticação real nas páginas (modo demo)
+
+Hoje as páginas de login/signup/forgot-password redirecionam direto pro dashboard sem validar nada. Para ativar o Clerk real:
+
+- `src/app/(auth)/login/page.tsx` → descomentar `useSignIn()` + `signIn.create()`
+- `src/app/(auth)/signup/page.tsx` → descomentar `useSignUp()` + `signUp.create()`
+- `src/app/(auth)/forgot-password/page.tsx` → descomentar reset password
+- `src/components/layout/sidebar.tsx` → ativar `useClerk().signOut()`
+- Recriar `src/middleware.ts` para proteger rotas autenticadas:
 
 ```ts
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 const isPublicRoute = createRouteMatcher([
   "/login(.*)", "/signup(.*)", "/forgot-password(.*)",
-  "/sso-callback(.*)", "/api/webhooks(.*)",
+  "/newsletter(.*)", "/sso-callback(.*)", "/api/webhooks(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -125,152 +119,101 @@ export const config = {
 };
 ```
 
-Recriar `src/app/sso-callback/page.tsx`:
+---
 
-```tsx
-"use client";
-import { AuthenticateWithRedirectCallback } from "@clerk/nextjs";
-export default function SSOCallbackPage() {
-  return <AuthenticateWithRedirectCallback signInForceRedirectUrl="/streak" signUpForceRedirectUrl="/streak" />;
-}
+## 🗄️ Supabase
+
+**Projeto:** `lado-b`
+**Região:** South America (São Paulo) — `sa-east-1`
+**URL:** `https://glqvuilreommxdixxxim.supabase.co`
+
+### Tabelas criadas
+
+| Tabela | Descrição |
+|---|---|
+| `users` | Espelha usuários do Clerk (`clerk_id` único) |
+| `streaks` | Streak atual e recorde por usuário |
+| `readings` | Registro de leituras (1 por edição por usuário) |
+| `missions` | Catálogo de missões (6 seedadas) |
+| `user_missions` | Progresso de cada usuário em cada missão |
+| `referrals` | Link único de indicação + status de verificação de email |
+| `otp_codes` | Códigos OTP temporários para verificação |
+
+Schema completo em `supabase/schema.sql`.
+
+### RLS
+
+Todas as tabelas têm RLS habilitado. Hoje as políticas são permissivas (leitura pública) para facilitar o desenvolvimento. Para produção, ajustar para validar `clerk_id` via JWT claims:
+
+```sql
+-- Exemplo para tabela readings
+CREATE POLICY "users can read own readings"
+ON public.readings FOR SELECT
+USING (
+  user_id = (
+    SELECT id FROM public.users
+    WHERE clerk_id = auth.jwt()->>'sub'
+  )
+);
 ```
-
-Remover o modo demo no `src/app/page.tsx` e usar `auth()` do Clerk pra checar sessão.
-
-### 2. Rodar o schema no Supabase
-
-1. Criar projeto em https://supabase.com/dashboard
-2. Abrir SQL Editor → colar `supabase/schema.sql` → executar
-3. Pegar URL + anon key + service_role key
-4. Conferir RLS policies (usa `clerk_id` via JWT claims — pode precisar ajustar o template JWT no Clerk)
-
-### 3. Recriar as API routes (foram removidas no static export)
-
-As rotas em `src/app/api/` foram removidas pro deploy GitHub Pages. Precisa recriar:
-
-- `POST /api/referral/verify-email` — envia OTP via Resend, salva em `otp_codes`
-- `POST /api/referral/confirm-otp` — valida código, marca email verificado, gera `ref_code`
-- `POST /api/webhooks/clerk` — sincroniza user com Supabase (`user.created`, `user.updated`, `email.created`)
-- `POST /api/webhooks/beehiiv` — registra leituras → atualiza streaks/missions
-
-O pseudocódigo dessas rotas está documentado nas libs (`src/lib/supabase.ts`, `src/lib/resend.ts`, `src/lib/beehiiv.ts`).
-
-### 4. Resend (email)
-
-1. Criar conta em https://resend.com
-2. Configurar DNS (SPF + DKIM) no domínio (ex: ladob.com.br)
-3. API key em `RESEND_API_KEY`
-4. `RESEND_FROM_EMAIL=noreply@ladob.com.br`
-
-### 5. Beehiiv (newsletter)
-
-**Status atual**: integração de leitura já está ligada. `/streak` faz fetch das edições em build-time via `listPosts()` (server component). Form de inscrição em `/newsletter` está pronto em modo demo (simula sucesso).
-
-**Pra ativar inscrição real (precisa Vercel)**:
-
-1. API key em app.beehiiv.com → Settings → Integrations → API → setar `BEEHIIV_API_KEY` e `BEEHIIV_PUBLICATION_ID` nas env vars
-2. Criar route handler `src/app/api/subscribe/route.ts`:
-   ```ts
-   import { NextResponse } from "next/server";
-   import { subscribe } from "@/lib/beehiiv";
-
-   export async function POST(req: Request) {
-     const { email } = await req.json();
-     if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
-     try {
-       const result = await subscribe(email, { utmSource: "lado-b-app" });
-       return NextResponse.json(result);
-     } catch (err) {
-       const msg = err instanceof Error ? err.message : "subscribe failed";
-       return NextResponse.json({ error: msg }, { status: 500 });
-     }
-   }
-   ```
-3. Setar `NEXT_PUBLIC_SUBSCRIBE_ENDPOINT=/api/subscribe` no `.env` — o `NewsletterForm` já consome essa env var.
-
-**Webhook de leituras (gamificação de streak)**:
-
-1. Configurar webhook no painel Beehiiv apontando pra `https://<domínio>/api/webhooks/beehiiv`
-2. Evento: `post.opened`
-3. Secret em `BEEHIIV_WEBHOOK_SECRET`
-4. Criar `src/app/api/webhooks/beehiiv/route.ts` que valida assinatura HMAC e dá insert em `readings` no Supabase (schema já tem trigger pra atualizar streak).
-
-### 6. Ajustar `next.config.ts` pra produção
-
-Remover o modo GitHub Pages (`output: 'export'` etc.) quando for deployar na Vercel/servidor Node:
-
-```ts
-const nextConfig: NextConfig = {
-  // Modo produção Vercel: sem export, com SSR/API routes normal
-};
-```
-
-Também remover o uso de `asset()` (helper de basePath) que só precisa em static export com subpath.
-
-### 7. Deploy Vercel
-
-1. Conectar https://github.com/allanjsr21/lado-b à Vercel
-2. Colar as env vars no painel:
-   ```
-   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...
-   CLERK_SECRET_KEY=...
-   CLERK_WEBHOOK_SECRET=...
-   NEXT_PUBLIC_SUPABASE_URL=...
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-   SUPABASE_SERVICE_ROLE_KEY=...
-   RESEND_API_KEY=...
-   RESEND_FROM_EMAIL=noreply@ladob.com.br
-   BEEHIIV_API_KEY=...
-   BEEHIIV_PUBLICATION_ID=...
-   BEEHIIV_WEBHOOK_SECRET=...
-   NEXT_PUBLIC_APP_URL=https://ladob.com.br
-   ```
-3. Deploy automático a cada push na branch `main`
-4. Configurar domínio customizado (Vercel → Settings → Domains)
-5. Configurar webhooks do Clerk e Beehiiv apontando pro domínio final
 
 ---
 
-## 📋 TODOs marcados no código
+## 🔑 Env vars — resumo completo
 
-Todos os pontos de integração estão marcados com `TODO (time de tech)`:
+| Variável | Onde obter | Status |
+|---|---|---|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | dashboard.clerk.com | ✅ Configurada |
+| `CLERK_SECRET_KEY` | dashboard.clerk.com | ✅ Configurada |
+| `CLERK_WEBHOOK_SECRET` | dashboard.clerk.com → Webhooks | ⏳ Falta criar webhook |
+| `NEXT_PUBLIC_SUPABASE_URL` | supabase.com → Project Settings | ✅ Configurada |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | supabase.com → Project Settings | ✅ Configurada |
+| `SUPABASE_SERVICE_ROLE_KEY` | supabase.com → Project Settings | ✅ Configurada |
+| `RESEND_API_KEY` | resend.com/api-keys | ✅ Configurada |
+| `RESEND_FROM_EMAIL` | — | ✅ `onboarding@resend.dev` (trocar p/ domínio próprio) |
+| `BEEHIIV_API_KEY` | app.beehiiv.com → Settings → API | ✅ Configurada |
+| `BEEHIIV_PUBLICATION_ID` | app.beehiiv.com → Settings → API | ✅ Configurada |
+| `BEEHIIV_WEBHOOK_SECRET` | app.beehiiv.com → Webhooks | ⏳ Falta criar webhook |
+| `NEXT_PUBLIC_APP_URL` | — | ✅ `https://lado-b-khaki.vercel.app` |
 
-- `src/app/(auth)/login/page.tsx` — ativar `useSignIn`
-- `src/app/(auth)/signup/page.tsx` — ativar `useSignUp`
-- `src/app/(auth)/forgot-password/page.tsx` — ativar reset password
-- `src/components/layout/sidebar.tsx` — ativar `signOut`
-- `src/app/(dashboard)/*` — buscar dados reais do Supabase
-- `src/app/(dashboard)/layout.tsx` — proteção de rotas
-- `src/lib/{supabase,resend,beehiiv}.ts` — clientes prontos com pseudocódigo nas rotas de API
-
-Grep rápido: `grep -rn "TODO (time de tech)" src/` dentro do repo.
+Para rodar local: `cp .env.local.example .env.local` e preencher os valores.
 
 ---
 
-## 🗂 Estrutura de pastas
+## 🏗️ Stack
+
+- **Next.js 16** (App Router + Turbopack)
+- **TypeScript + Tailwind CSS 4**
+- **@clerk/nextjs** v7 + `@clerk/localizations` (ptBR)
+- **@supabase/supabase-js**
+- **resend** ^6
+- **lucide-react**, **framer-motion**, **three.js / ogl** (UI/animações)
+
+---
+
+## 🗂️ Estrutura de pastas
 
 ```
 src/
 ├── app/
-│   ├── (auth)/              — rotas públicas
-│   ├── (dashboard)/         — rotas autenticadas (com sidebar)
-│   │   └── layout.tsx
-│   ├── layout.tsx           — root layout (fontes + metadata)
-│   └── page.tsx             — redirect pra /streak
+│   ├── (auth)/              Rotas públicas (login, signup, forgot-password)
+│   ├── (dashboard)/         Rotas autenticadas (sidebar)
+│   ├── api/                 API routes (subscribe, missions, ranking, referral, webhooks)
+│   ├── layout.tsx           Root layout com ClerkProvider
+│   └── page.tsx             Redirect para /streak
 ├── components/
 │   ├── layout/sidebar.tsx
-│   └── ui/                  — 15+ componentes (backgrounds, card, button, glass, etc)
-├── lib/
-│   ├── supabase.ts          — browser + admin client
-│   ├── resend.ts            — email OTP com template HTML
-│   ├── beehiiv.ts           — wrapper da API
-│   ├── asset.ts             — helper basePath (GitHub Pages)
-│   └── utils.ts             — cn() + helpers
-public/
-├── logo.svg                 — versão com fundo branco
-└── logo-dark.svg            — versão transparente (usada no site)
-supabase/schema.sql          — schema completo com RLS + triggers
-.github/workflows/deploy.yml — workflow GitHub Pages
+│   └── ui/                  Componentes visuais (glass, backgrounds, cards)
+└── lib/
+    ├── supabase.ts           Clients browser + admin
+    ├── resend.ts             sendOtpEmail()
+    ├── beehiiv.ts            listPosts() + subscribe()
+    ├── asset.ts              Helper basePath (GitHub Pages)
+    └── utils.ts              cn() + helpers
+supabase/
+└── schema.sql               Schema completo com RLS
+.github/
+└── workflows/deploy.yml     GitHub Pages CI
 ```
 
 ---
@@ -282,34 +225,30 @@ git clone https://github.com/allanjsr21/lado-b.git
 cd lado-b
 npm install
 cp .env.local.example .env.local
-# preencher env vars
+# preencher env vars no .env.local
 npm run dev
 # abre http://localhost:3000
 ```
 
 ---
 
-## 🔍 Debug / como foi decidido
+## 📋 TODOs no código
 
-**Por que GitHub Pages no momento do handoff?**
-- Time visual precisa revisar o site antes de ativar produção
-- Clerk em dev tem rate limits e qualquer teste gera contas fake
-- Static export é gratuito e instantâneo
-- Migrar pra Vercel/SSR é 15min (basta remover `output: 'export'`)
+Todos os pontos de integração incompletos estão marcados com `TODO (time de tech)`:
 
-**Por que 4 backgrounds WebGL diferentes em `/components/ui/`?**
-- Foram iterações durante o design
-- Só `aurora-background.tsx` (dashboard) e `procedural-ground.tsx` (login desktop) estão em uso
-- Os outros (`wavy`, `shader-background`, `neural-noise`, `background-boxes`, etc.) podem ser deletados se o time quiser
+```bash
+grep -rn "TODO (time de tech)" src/
+```
 
-**Por que liquid-glass tem 2 arquivos?**
-- `liquid-glass.tsx` = componente original do 21st.dev (referência)
-- `glass-effect.tsx` = versão dark-mode customizada com props `overlayColor` e `highlightColor`
+Principais:
+- Auth real nas páginas de login/signup/forgot-password
+- Middleware de proteção de rotas
+- Buscar dados reais do Supabase nas páginas do dashboard (hoje usam dados mockados)
+- Criar `sso-callback` page para OAuth do Google
 
 ---
 
 ## 💬 Contato
 
-- **Produto / Conteúdo:** Allan (allan.junior777@gmail.com)
+- **Produto:** Allan — allan.junior777@gmail.com
 - **Repo:** https://github.com/allanjsr21/lado-b
-- **Demo ao vivo:** https://allanjsr21.github.io/lado-b/
