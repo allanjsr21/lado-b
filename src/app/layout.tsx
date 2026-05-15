@@ -29,33 +29,35 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider
-      localization={ptBR}
-      appearance={{
-        variables: {
-          colorPrimary: "#ffc60a",
-          colorBackground: "#0a0a0a",
-          colorText: "#ffffff",
-          colorTextSecondary: "rgba(255,255,255,0.6)",
-          colorInputBackground: "#1a1a1a",
-          colorInputText: "#ffffff",
-          borderRadius: "12px",
-        },
-        elements: {
-          card: "bg-[#0a0a0a] border border-[rgba(255,198,10,0.2)]",
-          headerTitle: "text-white",
-          headerSubtitle: "text-white/60",
-          formButtonPrimary: "bg-[#ffc60a] text-black hover:bg-[#e6b200]",
-          footerActionLink: "text-[#ffc60a] hover:text-[#e6b200]",
-        },
-      }}
+    <html
+      lang="pt-BR"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <html
-        lang="pt-BR"
-        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      >
-        <body className="min-h-full flex flex-col">{children}</body>
-      </html>
-    </ClerkProvider>
+      <body className="min-h-full flex flex-col">
+        <ClerkProvider
+          localization={ptBR}
+          appearance={{
+            variables: {
+              colorPrimary: "#ffc60a",
+              colorBackground: "#0a0a0a",
+              colorText: "#ffffff",
+              colorTextSecondary: "rgba(255,255,255,0.6)",
+              colorInputBackground: "#1a1a1a",
+              colorInputText: "#ffffff",
+              borderRadius: "12px",
+            },
+            elements: {
+              card: "bg-[#0a0a0a] border border-[rgba(255,198,10,0.2)]",
+              headerTitle: "text-white",
+              headerSubtitle: "text-white/60",
+              formButtonPrimary: "bg-[#ffc60a] text-black hover:bg-[#e6b200]",
+              footerActionLink: "text-[#ffc60a] hover:text-[#e6b200]",
+            },
+          }}
+        >
+          {children}
+        </ClerkProvider>
+      </body>
+    </html>
   );
 }

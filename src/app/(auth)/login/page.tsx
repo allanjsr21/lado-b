@@ -4,20 +4,16 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useSignIn } from "@clerk/nextjs";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { asset } from "@/lib/asset";
 import AuroraBackground from "@/components/ui/aurora-background";
 import { GlassEffect, GlassFilter } from "@/components/ui/liquid-glass";
 import ProceduralGroundBackground from "@/components/ui/procedural-ground";
 
-/**
- * Página de Login — LADO ₿
- *
- * MODO DEMO: qualquer clique redireciona pro /streak.
- * TODO (time de tech): ativar `useSignIn` do Clerk aqui quando pronto.
- */
 export default function LoginPage() {
   const router = useRouter();
+  const { signIn, errors, fetchStatus } = useSignIn();
 
   // Mobile: não monta o shader WebGL (performance + distração)
   const [isDesktop, setIsDesktop] = useState(false);
@@ -33,23 +29,80 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [needs2fa, setNeeds2fa] = useState(false);
+  const [code, setCode] = useState("");
+
+  function extractError(fallback: string): string {
+    const e = errors?.[0] as { longMessage?: string; message?: string } | undefined;
+    return e?.longMessage ?? e?.message ?? fallback;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     setLoading(true);
-    // MODO DEMO
-    void email;
-    void password;
-    await new Promise((r) => setTimeout(r, 400));
-    router.push("/streak");
+    try {
+      await signIn.create({ identifier: email });
+      await signIn.password({ password });
+      if (signIn.status === "complete") {
+        await signIn.finalize({ navigate: () => router.push("/streak") });
+      } else if (signIn.status === "needs_second_factor") {
+        await signIn.mfa.sendEmailCode();
+        setNeeds2fa(true);
+      } else {
+        setError(`Login incompleto (status: ${signIn.status}).`);
+      }
+    } catch (err: unknown) {
+      console.error("[login] error", err);
+      const direct = (err as { errors?: { message?: string; longMessage?: string }[] })?.errors?.[0];
+      const msg =
+        direct?.longMessage ??
+        direct?.message ??
+        extractError(err instanceof Error ? err.message : "E-mail ou senha inválidos.");
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVerify2fa(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      await signIn.mfa.verifyEmailCode({ code });
+      if (signIn.status === "complete") {
+        await signIn.finalize({ navigate: () => router.push("/streak") });
+      } else {
+        setError(`Verificação incompleta (status: ${signIn.status}).`);
+      }
+    } catch (err: unknown) {
+      console.error("[login] 2fa error", err);
+      const direct = (err as { errors?: { message?: string; longMessage?: string }[] })?.errors?.[0];
+      setError(direct?.longMessage ?? direct?.message ?? extractError("Código inválido."));
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleGoogleLogin() {
+    setError(null);
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 400));
-    router.push("/streak");
+    try {
+      await signIn.sso({
+        strategy: "oauth_google",
+        redirectUrl: "/sso-callback",
+        redirectUrlComplete: "/streak",
+      });
+    } catch (err: unknown) {
+      console.error("[login] google error", err);
+      setError(extractError("Falha ao iniciar login com Google."));
+      setLoading(false);
+    }
   }
+
+  const submitting = loading || fetchStatus === "fetching";
 
   return (
     <main className="relative min-h-screen flex items-center justify-center px-4 py-2 overflow-hidden">
@@ -85,10 +138,52 @@ export default function LoginPage() {
             </div>
 
             <h1 className="text-center text-black/80 text-sm mb-4 font-semibold">
-              Entre na sua conta
+              {needs2fa ? "Verificação em 2 etapas" : "Entre na sua conta"}
             </h1>
 
-            {/* Formulário */}
+            {needs2fa ? (
+              <form onSubmit={handleVerify2fa} className="space-y-4">
+                <p className="text-center text-black/70 text-sm">
+                  Enviamos um código de 6 dígitos para{" "}
+                  <strong className="text-black">{email}</strong>
+                </p>
+                <input
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={code}
+                  onChange={(e) =>
+                    setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  placeholder="000000"
+                  className="w-full text-center text-2xl font-mono tracking-[0.5em] rounded-2xl border border-white/40 bg-white/20 backdrop-blur-md px-4 py-3 text-black placeholder:text-black/30 outline-none focus:border-[#ffc60a] focus:bg-white/40 focus:ring-2 focus:ring-[#ffc60a]/40"
+                />
+                {error && (
+                  <div className="rounded-2xl border border-red-500/40 bg-red-500/20 px-3 py-2 text-sm text-red-900 backdrop-blur-md font-medium">
+                    {error}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={submitting || code.length !== 6}
+                  className="w-full rounded-full bg-[#ffc60a] px-4 py-3 font-bold text-black transition hover:bg-[#ffd63d] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {submitting ? <Loader2 className="animate-spin" size={18} /> : "Confirmar e entrar"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNeeds2fa(false);
+                    setCode("");
+                    setError(null);
+                  }}
+                  className="w-full text-xs text-black/60 hover:text-black transition"
+                >
+                  ← Voltar
+                </button>
+              </form>
+            ) : (
+            <>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-black/80 mb-2">
@@ -146,10 +241,10 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={submitting}
                 className="w-full rounded-full bg-[#ffc60a] px-4 py-3 font-bold text-black transition hover:bg-[#ffd63d] hover:shadow-[0_8px_24px_rgba(255,198,10,0.35)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {loading ? <Loader2 className="animate-spin" size={18} /> : "Entrar"}
+                {submitting ? <Loader2 className="animate-spin" size={18} /> : "Entrar"}
               </button>
             </form>
 
@@ -164,7 +259,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={handleGoogleLogin}
-              disabled={loading}
+              disabled={submitting}
               className="w-full rounded-full border border-white/50 bg-white/30 backdrop-blur-md px-4 py-2.5 font-semibold text-black transition hover:bg-white/50 hover:border-white/70 disabled:opacity-60 flex items-center justify-center gap-3"
             >
               <GoogleIcon />
@@ -184,6 +279,8 @@ export default function LoginPage() {
                 Inscreva-se aqui
               </Link>
             </p>
+            </>
+            )}
           </div>
         </GlassEffect>
       </div>

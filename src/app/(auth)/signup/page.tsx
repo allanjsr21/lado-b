@@ -4,18 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useSignUp } from "@clerk/nextjs";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { asset } from "@/lib/asset";
 import AuroraBackground from "@/components/ui/aurora-background";
 
-/**
- * Página de Criar Conta — LADO ₿
- *
- * MODO DEMO: qualquer clique redireciona pro /streak.
- * TODO (time de tech): ativar `useSignUp` do Clerk aqui quando pronto.
- */
 export default function SignupPage() {
   const router = useRouter();
+  const { signUp, errors, fetchStatus } = useSignUp();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -28,6 +24,16 @@ export default function SignupPage() {
   // Estado de verificação (não acionado em modo demo, mantido pro time)
   const [pendingVerification, setPendingVerification] = useState(false);
   const [code, setCode] = useState("");
+
+  function extractError(fallback: string): string {
+    const e = errors?.[0] as { longMessage?: string; message?: string } | undefined;
+    return e?.longMessage ?? e?.message ?? fallback;
+  }
+
+  function readErr(err: unknown, fallback: string): string {
+    const direct = (err as { errors?: { message?: string; longMessage?: string }[] })?.errors?.[0];
+    return direct?.longMessage ?? direct?.message ?? extractError(fallback);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,26 +49,60 @@ export default function SignupPage() {
     }
 
     setLoading(true);
-    // MODO DEMO
-    void name;
-    void email;
-    await new Promise((r) => setTimeout(r, 400));
-    router.push("/streak");
+    try {
+      const [firstName, ...rest] = name.trim().split(" ");
+      await signUp.create({
+        emailAddress: email,
+        password,
+        firstName: firstName || undefined,
+        lastName: rest.join(" ") || undefined,
+      });
+      await signUp.verifications.sendEmailCode();
+      setPendingVerification(true);
+    } catch (err: unknown) {
+      console.error("[signup] error", err);
+      setError(readErr(err, "Não foi possível criar a conta."));
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     setLoading(true);
-    void code;
-    await new Promise((r) => setTimeout(r, 400));
-    router.push("/streak");
+    try {
+      await signUp.verifications.verifyEmailCode({ code });
+      if (signUp.status === "complete") {
+        await signUp.finalize({ navigate: () => router.push("/streak") });
+      } else {
+        setError(`Verificação incompleta (status: ${signUp.status}).`);
+      }
+    } catch (err: unknown) {
+      console.error("[signup] verify error", err);
+      setError(readErr(err, "Código inválido."));
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleGoogleSignup() {
+    setError(null);
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 400));
-    router.push("/streak");
+    try {
+      await signUp.sso({
+        strategy: "oauth_google",
+        redirectUrl: "/sso-callback",
+        redirectUrlComplete: "/streak",
+      });
+    } catch (err: unknown) {
+      console.error("[signup] google error", err);
+      setError(readErr(err, "Falha ao iniciar cadastro com Google."));
+      setLoading(false);
+    }
   }
+
+  const submitting = loading || fetchStatus === "fetching";
 
   return (
     <main className="relative min-h-screen flex items-center justify-center px-4 py-10 overflow-hidden">
@@ -131,10 +171,10 @@ export default function SignupPage() {
                 )}
                 <button
                   type="submit"
-                  disabled={loading || code.length !== 6}
+                  disabled={submitting || code.length !== 6}
                   className="w-full rounded-full bg-[#ffc60a] px-4 py-3 font-bold text-black transition hover:bg-[#ffd63d] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {loading ? (
+                  {submitting ? (
                     <Loader2 className="animate-spin" size={18} />
                   ) : (
                     "Confirmar e entrar"
@@ -229,10 +269,10 @@ export default function SignupPage() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={submitting}
                 className="w-full rounded-full bg-[#ffc60a] px-4 py-3.5 font-bold text-black transition hover:bg-[#ffd63d] hover:shadow-[0_8px_24px_rgba(255,198,10,0.35)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {loading ? <Loader2 className="animate-spin" size={18} /> : "Criar conta"}
+                {submitting ? <Loader2 className="animate-spin" size={18} /> : "Criar conta"}
               </button>
             </form>
 
@@ -245,7 +285,7 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={handleGoogleSignup}
-              disabled={loading}
+              disabled={submitting}
               className="w-full rounded-full border border-white/15 bg-white/5 backdrop-blur-md px-4 py-3 font-medium text-white transition hover:bg-white/10 hover:border-white/25 disabled:opacity-60 flex items-center justify-center gap-3"
             >
               <GoogleIcon />
