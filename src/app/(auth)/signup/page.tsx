@@ -11,7 +11,7 @@ import AuroraBackground from "@/components/ui/aurora-background";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signUp, errors, fetchStatus } = useSignUp();
+  const { signUp, fetchStatus } = useSignUp();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -25,14 +25,9 @@ export default function SignupPage() {
   const [pendingVerification, setPendingVerification] = useState(false);
   const [code, setCode] = useState("");
 
-  function extractError(fallback: string): string {
-    const e = errors?.[0] as { longMessage?: string; message?: string } | undefined;
-    return e?.longMessage ?? e?.message ?? fallback;
-  }
-
   function readErr(err: unknown, fallback: string): string {
     const direct = (err as { errors?: { message?: string; longMessage?: string }[] })?.errors?.[0];
-    return direct?.longMessage ?? direct?.message ?? extractError(fallback);
+    return direct?.longMessage ?? direct?.message ?? (err instanceof Error ? err.message : fallback);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -93,7 +88,7 @@ export default function SignupPage() {
       await signUp.sso({
         strategy: "oauth_google",
         redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/streak",
+        redirectCallbackUrl: "/streak",
       });
     } catch (err: unknown) {
       console.error("[signup] google error", err);

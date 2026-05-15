@@ -13,7 +13,7 @@ import ProceduralGroundBackground from "@/components/ui/procedural-ground";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn, errors, fetchStatus } = useSignIn();
+  const { signIn, fetchStatus } = useSignIn();
 
   // Mobile: não monta o shader WebGL (performance + distração)
   const [isDesktop, setIsDesktop] = useState(false);
@@ -33,9 +33,9 @@ export default function LoginPage() {
   const [needs2fa, setNeeds2fa] = useState(false);
   const [code, setCode] = useState("");
 
-  function extractError(fallback: string): string {
-    const e = errors?.[0] as { longMessage?: string; message?: string } | undefined;
-    return e?.longMessage ?? e?.message ?? fallback;
+  function readErr(err: unknown, fallback: string): string {
+    const direct = (err as { errors?: { message?: string; longMessage?: string }[] })?.errors?.[0];
+    return direct?.longMessage ?? direct?.message ?? (err instanceof Error ? err.message : fallback);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -55,12 +55,7 @@ export default function LoginPage() {
       }
     } catch (err: unknown) {
       console.error("[login] error", err);
-      const direct = (err as { errors?: { message?: string; longMessage?: string }[] })?.errors?.[0];
-      const msg =
-        direct?.longMessage ??
-        direct?.message ??
-        extractError(err instanceof Error ? err.message : "E-mail ou senha inválidos.");
-      setError(msg);
+      setError(readErr(err, "E-mail ou senha inválidos."));
     } finally {
       setLoading(false);
     }
@@ -79,8 +74,7 @@ export default function LoginPage() {
       }
     } catch (err: unknown) {
       console.error("[login] 2fa error", err);
-      const direct = (err as { errors?: { message?: string; longMessage?: string }[] })?.errors?.[0];
-      setError(direct?.longMessage ?? direct?.message ?? extractError("Código inválido."));
+      setError(readErr(err, "Código inválido."));
     } finally {
       setLoading(false);
     }
@@ -93,11 +87,11 @@ export default function LoginPage() {
       await signIn.sso({
         strategy: "oauth_google",
         redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/streak",
+        redirectCallbackUrl: "/streak",
       });
     } catch (err: unknown) {
       console.error("[login] google error", err);
-      setError(extractError("Falha ao iniciar login com Google."));
+      setError(readErr(err, "Falha ao iniciar login com Google."));
       setLoading(false);
     }
   }
